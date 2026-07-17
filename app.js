@@ -973,9 +973,8 @@ function renderAnalytics() {
   }).join('');
 
   // 2. Monthly Expense Breakdown (Top Subscriptions Bar Chart)
-  // Sort subscriptions by highest monthly cost
-  const topSubs = [...state.subscriptions]
-    .map(s => ({ sub: s, monthly: calculateNormalizedCosts(s).monthly }))
+  // Group by subscription name (rolling up same-company products), then sort by highest monthly cost
+  const topSubs = groupSubscriptionsByName(state.subscriptions)
     .sort((a,b) => b.monthly - a.monthly)
     .slice(0, 5); // Limit to top 5
 
@@ -992,7 +991,7 @@ function renderAnalytics() {
     const normHeight = (item.monthly / maxVal) * chartHeight;
     const x = startX + idx * (barWidth + spacing);
     const y = chartHeight - normHeight + 15;
-    const color = item.sub.type === 'service' ? 'url(#service-glow)' : 'url(#product-glow)';
+    const color = item.type === 'service' ? 'url(#service-glow)' : 'url(#product-glow)';
     
     // Gradient definitions
     if (idx === 0) {
@@ -1016,7 +1015,7 @@ function renderAnalytics() {
             x="${x}" y="${y}" 
             width="${barWidth}" height="${normHeight}" 
             rx="6" fill="${color}">
-        <title>${getDisplayName(item.sub)}: ${currencySymbol}${item.monthly.toFixed(2)}/mo</title>
+        <title>${getGroupDisplayName(item)}: ${currencySymbol}${item.monthly.toFixed(2)}/mo</title>
       </rect>
       <!-- Value Label -->
       <text x="${x + barWidth/2}" y="${y - 6}" text-anchor="middle" class="bar-chart-text" fill="var(--text-primary)" style="font-weight:700; font-size:9px;">
@@ -1024,7 +1023,7 @@ function renderAnalytics() {
       </text>
       <!-- Name Tag -->
       <text x="${x + barWidth/2}" y="${chartHeight + 30}" text-anchor="middle" class="bar-chart-text" style="font-size:9px;">
-        ${item.sub.name.length > 5 ? item.sub.name.substring(0, 4) + '..' : item.sub.name}
+        ${item.name.length > 5 ? item.name.substring(0, 4) + '..' : item.name}
       </text>
     `;
   });
@@ -1034,11 +1033,12 @@ function renderAnalytics() {
 
   // Render Bar Legend
   barLegend.innerHTML = topSubs.map(item => {
-    const color = item.sub.type === 'service' ? 'var(--service-color)' : 'var(--product-color)';
+    const color = item.type === 'service' ? 'var(--service-color)' : 'var(--product-color)';
+    const label = getGroupDisplayName(item);
     return `
       <div class="legend-item">
         <span class="legend-color" style="background: ${color}; border-radius: 2px; width: 12px; height: 8px;"></span>
-        <span class="legend-text" title="${getDisplayName(item.sub)}">${getDisplayName(item.sub)}</span>
+        <span class="legend-text" title="${label}">${label}</span>
         <span class="legend-value">${currencySymbol}${item.monthly.toFixed(2)}</span>
       </div>
     `;
@@ -1077,6 +1077,42 @@ function formatDateString(dateStr) {
 // Builds the display label for a subscription, appending its product name when present
 function getDisplayName(sub) {
   return sub.productName ? `${sub.name} - ${sub.productName}` : sub.name;
+}
+
+// Groups subscriptions by name for the Monthly Expense Breakdown chart.
+// Product subscriptions that share the same company name (sub.name) roll up into one entry;
+// services are never merged since each is a distinct subscription.
+function groupSubscriptionsByName(subs) {
+  const groups = {};
+  const order = [];
+
+  subs.forEach(s => {
+    const key = s.type === 'product' ? `product:${s.name}` : `service:${s.id}`;
+    const monthly = calculateNormalizedCosts(s).monthly;
+
+    if (!groups[key]) {
+      groups[key] = { name: s.name, type: s.type, monthly: 0, count: 0, productName: s.productName || '' };
+      order.push(key);
+    } else if (groups[key].productName !== (s.productName || '')) {
+      groups[key].productName = '';
+    }
+
+    groups[key].monthly += monthly;
+    groups[key].count += 1;
+  });
+
+  return order.map(key => groups[key]);
+}
+
+// Display label for a grouped chart entry: rolled-up products show a count, single items show their product name
+function getGroupDisplayName(group) {
+  if (group.type === 'product' && group.count > 1) {
+    return `${group.name} (${group.count})`;
+  }
+  if (group.type === 'product' && group.productName) {
+    return `${group.name} - ${group.productName}`;
+  }
+  return group.name;
 }
 
 function escapeHTML(str) {
