@@ -1,0 +1,25 @@
+{
+  "name": "SubTrack | Premium Subscription Tracker",
+  "short_name": "SubTrack",
+  "description": "Track and manage your recurring subscriptions and spending.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0e15",
+  "theme_color": "#6f5cf0",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
