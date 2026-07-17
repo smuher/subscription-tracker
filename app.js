@@ -118,6 +118,11 @@ function setupEventListeners() {
     document.getElementById('type-service').checked = true;
 
     modal.classList.add('active');
+    
+    // Put cursor in the first input field
+    setTimeout(() => {
+      document.getElementById('sub-name').focus();
+    }, 150);
   };
 
   if (addSubBtnFab) addSubBtnFab.addEventListener('click', openAddModal);
@@ -455,6 +460,12 @@ function editSubscription(subId) {
   document.getElementById('sub-reminder-text').value = sub.reminderText || '';
 
   modal.classList.add('active');
+  
+  // Put cursor in the first input field
+  setTimeout(() => {
+    document.getElementById('sub-name').focus();
+  }, 150);
+  
   if (window.lucide) window.lucide.createIcons();
 }
 
@@ -1175,11 +1186,15 @@ function sendTestNotification() {
   
   if (Notification.permission !== 'granted') {
     Notification.requestPermission().then(permission => {
+      updatePermissionBadge();
+      
       if (permission === 'granted') {
         sendLocalPushNotification('Test Successful!', 'Congratulations! SubTrack native notifications are working perfectly.');
-        updatePermissionBadge();
-      } else {
+      } else if (permission === 'denied') {
         alert('Notification permission was denied. Please enable them in your browser settings.');
+      } else {
+        // 'default' state: browser ignored or blocked due to insecure origin (e.g. file://)
+        alert('Notification permission request was not saved. This usually happens because you are opening the file directly (via file://) or using insecure HTTP. To test native notifications, please serve the app on localhost (e.g., by running "npx serve" in your folder).');
       }
     });
   } else {
@@ -1231,6 +1246,7 @@ function updateBellCount() {
 }
 
 function renderNotificationsCenter() {
+  updatePermissionBadge();
   const listContainer = document.getElementById('notifications-history-list');
   const today = new Date();
   today.setHours(0,0,0,0);
