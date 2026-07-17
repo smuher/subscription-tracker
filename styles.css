@@ -1473,6 +1473,15 @@ textarea:focus {
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+body.light-theme input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
 textarea {
   resize: vertical;
   min-height: 90px;
