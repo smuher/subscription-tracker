@@ -1,6 +1,6 @@
-# Subscription Tracker Phased Implementation Plan
+# SubTrack Phased Implementation Plan
 
-This plan details a mobile-first subscription tracking application. We will follow a phased rollout strategy designed to ensure rapid delivery, zero initial hosting cost, and a seamless path to future user management.
+This plan details **SubTrack**, a mobile-first subscription tracking application. We will follow a phased rollout strategy designed to ensure rapid delivery, zero initial hosting cost, and a seamless path to future user management.
 
 ## Roadmap & Phasing Strategy
 

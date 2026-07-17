@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
   applySavedTheme();
   setupEventListeners();
   switchTab(state.activeTab);
-  renderAll();
   checkNotificationPermissionsOnLoad();
   checkUpcomingRenewals();
 });
@@ -113,6 +112,8 @@ function setupEventListeners() {
     document.getElementById('modal-title').textContent = 'Add Subscription';
     document.getElementById('sub-renewal-date').value = getTodayDateString();
     document.getElementById('custom-category-group').style.display = 'none';
+    document.getElementById('product-name-group').style.display = 'none';
+    document.getElementById('sub-product-name').value = '';
     
     // Default to service selected
     document.getElementById('type-service').checked = true;
@@ -147,6 +148,22 @@ function setupEventListeners() {
       document.getElementById('sub-custom-category').required = false;
     }
   });
+
+  // Type toggle: show/hide Product Name field
+  const typeServiceRadio = document.getElementById('type-service');
+  const typeProductRadio = document.getElementById('type-product');
+  const productNameGroup = document.getElementById('product-name-group');
+
+  function updateProductNameVisibility() {
+    if (typeProductRadio.checked) {
+      productNameGroup.style.display = 'flex';
+    } else {
+      productNameGroup.style.display = 'none';
+    }
+  }
+
+  typeServiceRadio.addEventListener('change', updateProductNameVisibility);
+  typeProductRadio.addEventListener('change', updateProductNameVisibility);
 
   // Form Submission
   const form = document.getElementById('subscription-form');
@@ -361,12 +378,14 @@ function handleFormSubmit(e) {
   }
 
   const subId = formData.get('id');
+  const subType = formData.get('type') || 'service';
   const subData = {
     id: subId || generateUUID(),
     name: formData.get('name').trim(),
     cost: parseFloat(formData.get('cost')),
     currency: formData.get('currency'),
-    type: formData.get('type') || 'service',
+    type: subType,
+    productName: subType === 'product' ? (formData.get('productName') || '').trim() : '',
     billingInterval: parseInt(formData.get('billingInterval')),
     billingPeriod: formData.get('billingPeriod'),
     nextRenewalDate: formData.get('nextRenewalDate'),
@@ -459,6 +478,16 @@ function editSubscription(subId) {
   document.getElementById('sub-reminder-date').value = sub.reminderDate || '';
   document.getElementById('sub-reminder-text').value = sub.reminderText || '';
 
+  // Product Name field
+  const productNameGrp = document.getElementById('product-name-group');
+  if (sub.type === 'product') {
+    productNameGrp.style.display = 'flex';
+    document.getElementById('sub-product-name').value = sub.productName || '';
+  } else {
+    productNameGrp.style.display = 'none';
+    document.getElementById('sub-product-name').value = '';
+  }
+
   modal.classList.add('active');
   
   // Put cursor in the first input field
@@ -473,7 +502,7 @@ function deleteSubscription(subId) {
   const sub = state.subscriptions.find(s => s.id === subId);
   if (!sub) return;
 
-  if (confirm(`Are you sure you want to delete your subscription to "${sub.name}"?`)) {
+  if (confirm(`Are you sure you want to delete your subscription to "${getDisplayName(sub)}"?`)) {
     state.subscriptions = state.subscriptions.filter(s => s.id !== subId);
     
     // Clean up dismissed notifications for this subscription
@@ -607,7 +636,7 @@ function renderDashboardAlerts() {
               ${sub.name.charAt(0).toUpperCase()}
             </div>
             <div class="list-item-details">
-              <span class="list-item-name">${sub.name}</span>
+              <span class="list-item-name">${getDisplayName(sub)}</span>
               <span class="list-item-meta">
                 <i data-lucide="calendar" class="${indicatorColor}" style="width:12px;height:12px;"></i>
                 <span>Renews: ${daysStr} (${dateFormatted})</span>
@@ -642,8 +671,8 @@ function renderDashboardAlerts() {
             <div class="list-item-circle-badge" style="background: rgba(245, 158, 11, 0.15); color: var(--warning)">
               <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
             </div>
-            <div class="list-item-details" style="max-width: 180px;">
-              <span class="list-item-name">${sub.name} Reminder</span>
+            <div class="list-item-details">
+              <span class="list-item-name">${getDisplayName(sub)} Reminder</span>
               <span class="list-item-meta" style="font-weight: 600; color: var(--text-primary);">"${sub.reminderText || 'Review Subscription'}"</span>
               <span class="list-item-meta">Due: ${formatDateString(sub.reminderDate)}</span>
             </div>
@@ -729,6 +758,7 @@ function renderSubscriptionsList() {
             </div>
             <div class="sub-name-wrapper">
               <span class="sub-name">${sub.name}</span>
+              ${sub.productName ? `<span class="sub-product-name">${escapeHTML(sub.productName)}</span>` : ''}
               <div class="sub-meta-row">
                 <span class="sub-badge ${badgeClass}">${typeLabel}</span>
                 <span class="sub-category-tag">${sub.category}</span>
@@ -986,7 +1016,7 @@ function renderAnalytics() {
             x="${x}" y="${y}" 
             width="${barWidth}" height="${normHeight}" 
             rx="6" fill="${color}">
-        <title>${item.sub.name}: ${currencySymbol}${item.monthly.toFixed(2)}/mo</title>
+        <title>${getDisplayName(item.sub)}: ${currencySymbol}${item.monthly.toFixed(2)}/mo</title>
       </rect>
       <!-- Value Label -->
       <text x="${x + barWidth/2}" y="${y - 6}" text-anchor="middle" class="bar-chart-text" fill="var(--text-primary)" style="font-weight:700; font-size:9px;">
@@ -1008,7 +1038,7 @@ function renderAnalytics() {
     return `
       <div class="legend-item">
         <span class="legend-color" style="background: ${color}; border-radius: 2px; width: 12px; height: 8px;"></span>
-        <span class="legend-text" title="${item.sub.name}">${item.sub.name}</span>
+        <span class="legend-text" title="${getDisplayName(item.sub)}">${getDisplayName(item.sub)}</span>
         <span class="legend-value">${currencySymbol}${item.monthly.toFixed(2)}</span>
       </div>
     `;
@@ -1023,7 +1053,7 @@ function renderAnalytics() {
 
     return `
       <tr>
-        <td style="font-weight:600;">${s.name}</td>
+        <td style="font-weight:600;">${getDisplayName(s)}</td>
         <td><span class="sub-badge ${typeBadge}">${typeLabel}</span></td>
         <td>every ${s.billingInterval} ${s.billingPeriod}</td>
         <td>${s.currency}${s.cost.toFixed(2)}</td>
@@ -1042,6 +1072,11 @@ function formatDateString(dateStr) {
   if (!dateStr) return '';
   const dateObj = new Date(dateStr + 'T00:00:00');
   return dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Builds the display label for a subscription, appending its product name when present
+function getDisplayName(sub) {
+  return sub.productName ? `${sub.name} - ${sub.productName}` : sub.name;
 }
 
 function escapeHTML(str) {
@@ -1137,8 +1172,8 @@ function checkUpcomingRenewals() {
         const renewalMessage = diffTime === 0 ? 'renews today!' : diffTime === 1 ? 'renews tomorrow!' : `renews in ${diffTime} days.`;
         
         sendLocalPushNotification(
-          `${sub.name} Renewal Alert`,
-          `Your subscription to ${sub.name} of ${sub.currency}${sub.cost.toFixed(2)} ${renewalMessage}`
+          `${getDisplayName(sub)} Renewal Alert`,
+          `Your subscription to ${getDisplayName(sub)} of ${sub.currency}${sub.cost.toFixed(2)} ${renewalMessage}`
         );
         newNotificationsSent = true;
       }
@@ -1151,7 +1186,7 @@ function checkUpcomingRenewals() {
         const alertId = `${sub.id}-${sub.reminderDate}-custom`;
         if (!state.dismissedAlerts.includes(alertId)) {
           sendLocalPushNotification(
-            `Reminder: ${sub.name}`,
+            `Reminder: ${getDisplayName(sub)}`,
             sub.reminderText || `Custom alert scheduled for today.`
           );
           newNotificationsSent = true;
@@ -1267,7 +1302,7 @@ function renderNotificationsCenter() {
       
       activeAlerts.push({
         id: alertId,
-        title: `${sub.name} Renewal`,
+        title: `${getDisplayName(sub)} Renewal`,
         body: `Cost: ${sub.currency}${sub.cost.toFixed(2)} ${renewalMessage}`,
         time: sub.nextRenewalDate,
         dismissed: state.dismissedAlerts.includes(alertId)
@@ -1281,7 +1316,7 @@ function renderNotificationsCenter() {
         const alertId = `${sub.id}-${sub.reminderDate}-custom`;
         activeAlerts.push({
           id: alertId,
-          title: `Reminder: ${sub.name}`,
+          title: `Reminder: ${getDisplayName(sub)}`,
           body: sub.reminderText || `Custom alert scheduled.`,
           time: sub.reminderDate,
           dismissed: state.dismissedAlerts.includes(alertId)

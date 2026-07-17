@@ -364,22 +364,7 @@
           <!-- Subscription Name -->
           <div class="form-group full-width">
             <label for="sub-name" class="required-label">Subscription Name</label>
-            <input type="text" id="sub-name" name="name" required placeholder="e.g., Netflix, Spotify, Gym membership">
-          </div>
-
-          <!-- Cost and Currency -->
-          <div class="form-group">
-            <label for="sub-cost" class="required-label">Cost</label>
-            <div class="currency-cost-input">
-              <select id="sub-currency" name="currency">
-                <option value="$">$ (USD)</option>
-                <option value="€">€ (EUR)</option>
-                <option value="£">£ (GBP)</option>
-                <option value="¥">¥ (JPY)</option>
-                <option value="₹">₹ (INR)</option>
-              </select>
-              <input type="number" id="sub-cost" name="cost" required step="0.01" min="0.01" placeholder="0.00">
-            </div>
+            <input type="text" id="sub-name" name="name" required placeholder="e.g., Netflix, Spotify, Gym membership" tabindex="1">
           </div>
 
           <!-- Type Switcher (Service vs Product) -->
@@ -389,14 +374,35 @@
               <input type="radio" id="type-service" name="type" value="service" checked style="display: none;">
               <input type="radio" id="type-product" name="type" value="product" style="display: none;">
               
-              <label for="type-service" class="type-toggle-btn type-service-label">
+              <label for="type-service" class="type-toggle-btn type-service-label" tabindex="2">
                 <i data-lucide="activity"></i>
                 <span>Service</span>
               </label>
-              <label for="type-product" class="type-toggle-btn type-product-label">
+              <label for="type-product" class="type-toggle-btn type-product-label" tabindex="3">
                 <i data-lucide="package"></i>
                 <span>Product</span>
               </label>
+            </div>
+          </div>
+
+          <!-- Product Name (shown only when Product type selected) -->
+          <div class="form-group" id="product-name-group" style="display: none;">
+            <label for="sub-product-name">Product Name</label>
+            <input type="text" id="sub-product-name" name="productName" placeholder="e.g., Protein Powder, Dog Treats" tabindex="4">
+          </div>
+
+          <!-- Cost and Currency -->
+          <div class="form-group">
+            <label for="sub-cost" class="required-label">Cost</label>
+            <div class="currency-cost-input">
+              <select id="sub-currency" name="currency" tabindex="5">
+                <option value="$">$ (USD)</option>
+                <option value="€">€ (EUR)</option>
+                <option value="£">£ (GBP)</option>
+                <option value="¥">¥ (JPY)</option>
+                <option value="₹">₹ (INR)</option>
+              </select>
+              <input type="number" id="sub-cost" name="cost" required step="0.01" min="0.01" placeholder="0.00" tabindex="6">
             </div>
           </div>
 
@@ -404,8 +410,8 @@
           <div class="form-group">
             <label for="sub-interval" class="required-label">Billing Cycle (Every)</label>
             <div class="cycle-input-group">
-              <input type="number" id="sub-interval" name="billingInterval" required min="1" value="1">
-              <select id="sub-period" name="billingPeriod">
+              <input type="number" id="sub-interval" name="billingInterval" required min="1" value="1" tabindex="7">
+              <select id="sub-period" name="billingPeriod" tabindex="8">
                 <option value="weeks">Week(s)</option>
                 <option value="months" selected>Month(s)</option>
                 <option value="years">Year(s)</option>
@@ -416,13 +422,13 @@
           <!-- Next Renewal Date -->
           <div class="form-group">
             <label for="sub-renewal-date" class="required-label">Next Renewal Date</label>
-            <input type="date" id="sub-renewal-date" name="nextRenewalDate" required>
+            <input type="date" id="sub-renewal-date" name="nextRenewalDate" required tabindex="9">
           </div>
 
           <!-- Category -->
           <div class="form-group">
             <label for="sub-category">Category</label>
-            <select id="sub-category" name="category">
+            <select id="sub-category" name="category" tabindex="10">
               <option value="Entertainment">Entertainment</option>
               <option value="Utilities">Utilities</option>
               <option value="SaaS">SaaS (Software)</option>
@@ -437,19 +443,19 @@
           <!-- Custom Category Text (Hidden by default) -->
           <div class="form-group" id="custom-category-group" style="display: none;">
             <label for="sub-custom-category">Custom Category Name</label>
-            <input type="text" id="sub-custom-category" placeholder="Enter category name">
+            <input type="text" id="sub-custom-category" placeholder="Enter category name" tabindex="11">
           </div>
 
           <!-- Manage Subscription Link -->
           <div class="form-group full-width">
             <label for="sub-manage-url">Manage Subscription URL <span class="label-optional">(Optional)</span></label>
-            <input type="url" id="sub-manage-url" name="manageUrl" placeholder="https://netflix.com/youraccount">
+            <input type="url" id="sub-manage-url" name="manageUrl" placeholder="https://netflix.com/youraccount" tabindex="12">
           </div>
 
           <!-- Notes -->
           <div class="form-group full-width">
             <label for="sub-notes">Notes / Details <span class="label-optional">(Optional)</span></label>
-            <textarea id="sub-notes" name="notes" placeholder="e.g. Account username, Tier info, Cancellation terms..."></textarea>
+            <textarea id="sub-notes" name="notes" placeholder="e.g. Account username, Tier info, Cancellation terms..." tabindex="13"></textarea>
           </div>
 
           <!-- Custom Reminder Section header -->
@@ -460,19 +466,19 @@
           <!-- Reminder Date -->
           <div class="form-group">
             <label for="sub-reminder-date">Reminder Date <span class="label-optional">(Optional)</span></label>
-            <input type="date" id="sub-reminder-date" name="reminderDate">
+            <input type="date" id="sub-reminder-date" name="reminderDate" tabindex="14">
           </div>
 
           <!-- Reminder Text -->
           <div class="form-group">
             <label for="sub-reminder-text">Reminder Message <span class="label-optional">(Optional)</span></label>
-            <input type="text" id="sub-reminder-text" name="reminderText" placeholder="e.g., Cancel trial, Review usage">
+            <input type="text" id="sub-reminder-text" name="reminderText" placeholder="e.g., Cancel trial, Review usage" tabindex="15">
           </div>
         </div>
 
         <div class="form-actions">
-          <button type="button" class="btn-action-outline close-modal-btn" id="form-cancel-btn">Cancel</button>
-          <button type="submit" class="btn-primary" id="form-submit-btn">Save Subscription</button>
+          <button type="button" class="btn-action-outline close-modal-btn" id="form-cancel-btn" tabindex="16">Cancel</button>
+          <button type="submit" class="btn-primary" id="form-submit-btn" tabindex="17">Save Subscription</button>
         </div>
       </form>
     </div>

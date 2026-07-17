@@ -967,6 +967,13 @@ body.light-theme .stat-icon-wrapper {
   color: var(--text-primary);
 }
 
+.sub-product-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--product-color);
+  margin-top: 1px;
+}
+
 .sub-meta-row {
   display: flex;
   align-items: center;
