@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SubTrack | Premium Subscription Tracker</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="dark-theme">
+  <!-- Background Glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- App Shell Container -->
+  <div class="app-shell">
+    
+    <!-- Sidebar Navigation (Desktop) -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <i data-lucide="activity" class="brand-icon"></i>
+        </div>
+        <span class="brand-name">SubTrack</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="subscriptions">
+          <i data-lucide="list"></i>
+          <span>Subscriptions</span>
+        </button>
+        <button class="nav-item" data-tab="analytics">
+          <i data-lucide="pie-chart"></i>
+          <span>Analytics</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn-action-outline theme-toggle-btn">
+          <i data-lucide="sun" class="sun-icon"></i>
+          <i data-lucide="moon" class="moon-icon"></i>
+          <span>Toggle Theme</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Top Header Bar -->
+      <header class="app-header">
+        <div class="header-title-area">
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-subtitle" class="text-secondary">Overview of your spending</p>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn theme-toggle-btn mobile-only" aria-label="Toggle Theme">
+            <i data-lucide="sun" class="sun-icon"></i>
+            <i data-lucide="moon" class="moon-icon"></i>
+          </button>
+          
+          <button class="icon-btn notification-bell-btn" aria-label="Notifications">
+            <i data-lucide="bell"></i>
+            <span class="notification-badge" id="notification-badge-count" style="display: none;">0</span>
+          </button>
+
+          <button class="btn-primary desktop-only" id="add-sub-btn-desktop">
+            <i data-lucide="plus"></i>
+            <span>Add Subscription</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- View Wrapper -->
+      <div class="view-container">
+        
+        <!-- ========================================== -->
+        <!-- DASHBOARD VIEW -->
+        <!-- ========================================== -->
+        <section id="view-dashboard" class="tab-view active">
+          <!-- Notification Alert Bar -->
+          <div class="alert-bar" id="notification-permission-bar" style="display: none;">
+            <div class="alert-content">
+              <i data-lucide="bell-ring" class="alert-icon text-indigo"></i>
+              <div class="alert-text">
+                <span class="alert-title">Enable Native Notifications</span>
+                <span class="alert-desc">Get browser alerts for upcoming renewals and custom reminders.</span>
+              </div>
+            </div>
+            <button class="btn-alert-action" id="enable-notifications-btn">Enable</button>
+          </div>
+
+          <!-- Active Quick Filter chips -->
+          <div class="filter-chips-container">
+            <button class="filter-chip active" data-filter-type="all">All Subscriptions</button>
+            <button class="filter-chip" data-filter-type="service">Services Only</button>
+            <button class="filter-chip" data-filter-type="product">Products Only</button>
+          </div>
+
+          <!-- Dashboard Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-card total-monthly">
+              <div class="stat-card-header">
+                <span class="stat-label">Monthly Expense</span>
+                <div class="stat-icon-wrapper text-indigo">
+                  <i data-lucide="calendar"></i>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-monthly-cost">$0.00</div>
+              <div class="stat-trend" id="stat-monthly-trend">Based on active items</div>
+            </div>
+
+            <div class="stat-card total-annual">
+              <div class="stat-card-header">
+                <span class="stat-label">Annual Expense</span>
+                <div class="stat-icon-wrapper text-emerald">
+                  <i data-lucide="trending-up"></i>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-annual-cost">$0.00</div>
+              <div class="stat-trend" id="stat-annual-trend">Based on active items</div>
+            </div>
+
+            <div class="stat-card active-count">
+              <div class="stat-card-header">
+                <span class="stat-label">Active Tracked</span>
+                <div class="stat-icon-wrapper text-teal">
+                  <i data-lucide="refresh-cw"></i>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-active-count">0</div>
+              <div class="stat-trend" id="stat-active-subtext">0 services, 0 products</div>
+            </div>
+          </div>
+
+          <!-- Dashboard Content Splitting -->
+          <div class="dashboard-details-grid">
+            
+            <!-- Upcoming Renewals Column -->
+            <div class="dashboard-column">
+              <div class="column-header">
+                <h2>Upcoming Renewals</h2>
+                <span class="badge badge-info" id="upcoming-renewals-count">0 Soon</span>
+              </div>
+              <div class="upcoming-list" id="upcoming-renewals-list">
+                <!-- Injected dynamically by JS -->
+                <div class="empty-state">
+                  <i data-lucide="check-circle-2"></i>
+                  <p>All caught up! No renewals in the next 3 days.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Custom Alerts & Reminders Column -->
+            <div class="dashboard-column">
+              <div class="column-header">
+                <h2>Custom Reminders & Tasks</h2>
+                <span class="badge badge-warning" id="custom-reminders-count">0 Active</span>
+              </div>
+              <div class="reminders-list" id="custom-reminders-list">
+                <!-- Injected dynamically by JS -->
+                <div class="empty-state">
+                  <i data-lucide="bell-off"></i>
+                  <p>No upcoming custom reminders set.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SUBSCRIPTIONS VIEW -->
+        <!-- ========================================== -->
+        <section id="view-subscriptions" class="tab-view">
+          
+          <!-- Search & Filter Controls -->
+          <div class="controls-card glass-panel">
+            <div class="search-sort-bar">
+              <div class="search-input-wrapper">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="search-input" placeholder="Search by name, category, or notes...">
+                <button class="clear-btn" id="search-clear-btn" style="display: none;">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+              <div class="sort-select-wrapper">
+                <i data-lucide="arrow-up-down" class="sort-icon"></i>
+                <select id="sort-select">
+                  <option value="renewal-soon">Renewal (Soonest)</option>
+                  <option value="cost-high">Cost (Highest)</option>
+                  <option value="cost-low">Cost (Lowest)</option>
+                  <option value="name-az">Name (A-Z)</option>
+                  <option value="name-za">Name (Z-A)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Category Filters Scroller -->
+            <div class="category-filter-bar">
+              <span class="filter-label">Categories:</span>
+              <div class="category-chips" id="category-chips-list">
+                <button class="cat-chip active" data-category="all">All</button>
+                <button class="cat-chip" data-category="Entertainment">Entertainment</button>
+                <button class="cat-chip" data-category="Utilities">Utilities</button>
+                <button class="cat-chip" data-category="SaaS">SaaS</button>
+                <button class="cat-chip" data-category="Health & Wellness">Health & Wellness</button>
+                <button class="cat-chip" data-category="Productivity">Productivity</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subscription List Grid -->
+          <div class="subscription-list-grid" id="subscriptions-list-container">
+            <!-- Injected dynamically by JS -->
+            <div class="empty-state large-empty-state">
+              <i data-lucide="plus-circle" class="bounce-animation"></i>
+              <h3>No Subscriptions Tracked Yet</h3>
+              <p>Add your first subscription to start tracking your spending and getting automated renewal alerts.</p>
+              <button class="btn-primary" id="empty-state-add-btn">
+                <i data-lucide="plus"></i>
+                <span>Add Subscription</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- ANALYTICS VIEW -->
+        <!-- ========================================== -->
+        <section id="view-analytics" class="tab-view">
+          <div class="analytics-grid">
+            
+            <!-- Category Spend (Donut Chart) -->
+            <div class="analytics-card glass-panel flex-column">
+              <h3>Spend by Category</h3>
+              <div class="chart-container" id="donut-chart-container">
+                <!-- SVG injected dynamically by JS -->
+                <div class="empty-chart-placeholder">
+                  <i data-lucide="pie-chart" class="placeholder-icon"></i>
+                  <p>Add subscriptions to view category breakdown</p>
+                </div>
+              </div>
+              <div class="chart-legend" id="donut-chart-legend"></div>
+            </div>
+
+            <!-- Monthly Projection (Bar Chart) -->
+            <div class="analytics-card glass-panel flex-column">
+              <h3>Monthly Expense Breakdown</h3>
+              <p class="chart-description">Calculated normalized monthly cost per subscription</p>
+              <div class="chart-container" id="bar-chart-container">
+                <!-- SVG injected dynamically by JS -->
+                <div class="empty-chart-placeholder">
+                  <i data-lucide="bar-chart-2" class="placeholder-icon"></i>
+                  <p>Add subscriptions to view monthly chart</p>
+                </div>
+              </div>
+              <div class="chart-legend" id="bar-chart-legend"></div>
+            </div>
+
+            <!-- Detailed Breakdown Table -->
+            <div class="analytics-card glass-panel full-width">
+              <h3>Subscription Cost Comparison</h3>
+              <div class="table-container">
+                <table class="analytics-table" id="comparison-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Billing Interval</th>
+                      <th>Actual Cost</th>
+                      <th>Monthly (Normalized)</th>
+                      <th>Annual (Normalized)</th>
+                      <th>% of Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="comparison-table-body">
+                    <!-- Injected dynamically by JS -->
+                    <tr>
+                      <td colspan="7" class="text-center text-secondary">No data available</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Backup & Restore section in Analytics -->
+            <div class="analytics-card glass-panel full-width backup-restore-card">
+              <div class="backup-restore-header">
+                <div>
+                  <h3>Data Portability & Backup</h3>
+                  <p class="text-secondary">Export your data to a JSON file, or import a saved backup. Safe, serverless local storage.</p>
+                </div>
+                <i data-lucide="database" class="backup-icon"></i>
+              </div>
+              <div class="backup-actions">
+                <button class="btn-action-outline" id="export-json-btn">
+                  <i data-lucide="download"></i>
+                  <span>Export Data (JSON)</span>
+                </button>
+                <label class="btn-action-outline file-input-label" for="import-json-file">
+                  <i data-lucide="upload"></i>
+                  <span>Import Data (JSON)</span>
+                  <input type="file" id="import-json-file" accept=".json" style="display: none;">
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Bottom Navigation Bar (Mobile only) -->
+    <nav class="bottom-nav">
+      <button class="bottom-nav-item active" data-tab="dashboard">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Dashboard</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="subscriptions">
+        <i data-lucide="list"></i>
+        <span>List</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="analytics">
+        <i data-lucide="pie-chart"></i>
+        <span>Analytics</span>
+      </button>
+    </nav>
+
+    <!-- Floating Action Button (Mobile only) -->
+    <button class="fab-btn" id="add-sub-btn-fab" aria-label="Add Subscription">
+      <i data-lucide="plus"></i>
+    </button>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ADD / EDIT SUBSCRIPTION -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="subscription-modal">
+    <div class="modal-container">
+      
+      <div class="modal-header">
+        <h2 id="modal-title">Add Subscription</h2>
+        <button class="icon-btn close-modal-btn" id="close-modal-btn" aria-label="Close modal">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <form id="subscription-form" class="modal-form">
+        <!-- Hidden input for ID when editing -->
+        <input type="hidden" id="sub-id" name="id">
+
+        <div class="form-grid">
+          <!-- Subscription Name -->
+          <div class="form-group full-width">
+            <label for="sub-name" class="required-label">Subscription Name</label>
+            <input type="text" id="sub-name" name="name" required placeholder="e.g., Netflix, Spotify, Gym membership">
+          </div>
+
+          <!-- Cost and Currency -->
+          <div class="form-group">
+            <label for="sub-cost" class="required-label">Cost</label>
+            <div class="currency-cost-input">
+              <select id="sub-currency" name="currency">
+                <option value="$">$ (USD)</option>
+                <option value="€">€ (EUR)</option>
+                <option value="£">£ (GBP)</option>
+                <option value="¥">¥ (JPY)</option>
+                <option value="₹">₹ (INR)</option>
+              </select>
+              <input type="number" id="sub-cost" name="cost" required step="0.01" min="0.01" placeholder="0.00">
+            </div>
+          </div>
+
+          <!-- Type Switcher (Service vs Product) -->
+          <div class="form-group">
+            <label>Subscription Type</label>
+            <div class="type-toggle-group">
+              <input type="radio" id="type-service" name="type" value="service" checked style="display: none;">
+              <input type="radio" id="type-product" name="type" value="product" style="display: none;">
+              
+              <label for="type-service" class="type-toggle-btn type-service-label">
+                <i data-lucide="activity"></i>
+                <span>Service</span>
+              </label>
+              <label for="type-product" class="type-toggle-btn type-product-label">
+                <i data-lucide="package"></i>
+                <span>Product</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Billing Cycle Value and Period -->
+          <div class="form-group">
+            <label for="sub-interval" class="required-label">Billing Cycle (Every)</label>
+            <div class="cycle-input-group">
+              <input type="number" id="sub-interval" name="billingInterval" required min="1" value="1">
+              <select id="sub-period" name="billingPeriod">
+                <option value="weeks">Week(s)</option>
+                <option value="months" selected>Month(s)</option>
+                <option value="years">Year(s)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Next Renewal Date -->
+          <div class="form-group">
+            <label for="sub-renewal-date" class="required-label">Next Renewal Date</label>
+            <input type="date" id="sub-renewal-date" name="nextRenewalDate" required>
+          </div>
+
+          <!-- Category -->
+          <div class="form-group">
+            <label for="sub-category">Category</label>
+            <select id="sub-category" name="category">
+              <option value="Entertainment">Entertainment</option>
+              <option value="Utilities">Utilities</option>
+              <option value="SaaS">SaaS (Software)</option>
+              <option value="Health & Wellness">Health & Wellness</option>
+              <option value="Productivity">Productivity</option>
+              <option value="Food & Drink">Food & Drink</option>
+              <option value="Shopping">Shopping</option>
+              <option value="custom">+ Add Custom Category...</option>
+            </select>
+          </div>
+
+          <!-- Custom Category Text (Hidden by default) -->
+          <div class="form-group" id="custom-category-group" style="display: none;">
+            <label for="sub-custom-category">Custom Category Name</label>
+            <input type="text" id="sub-custom-category" placeholder="Enter category name">
+          </div>
+
+          <!-- Manage Subscription Link -->
+          <div class="form-group full-width">
+            <label for="sub-manage-url">Manage Subscription URL <span class="label-optional">(Optional)</span></label>
+            <input type="url" id="sub-manage-url" name="manageUrl" placeholder="https://netflix.com/youraccount">
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group full-width">
+            <label for="sub-notes">Notes / Details <span class="label-optional">(Optional)</span></label>
+            <textarea id="sub-notes" name="notes" placeholder="e.g. Account username, Tier info, Cancellation terms..."></textarea>
+          </div>
+
+          <!-- Custom Reminder Section header -->
+          <div class="form-section-divider full-width">
+            <span>Alerts & Custom Reminders</span>
+          </div>
+
+          <!-- Reminder Date -->
+          <div class="form-group">
+            <label for="sub-reminder-date">Reminder Date <span class="label-optional">(Optional)</span></label>
+            <input type="date" id="sub-reminder-date" name="reminderDate">
+          </div>
+
+          <!-- Reminder Text -->
+          <div class="form-group">
+            <label for="sub-reminder-text">Reminder Message <span class="label-optional">(Optional)</span></label>
+            <input type="text" id="sub-reminder-text" name="reminderText" placeholder="e.g., Cancel trial, Review usage">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-action-outline close-modal-btn" id="form-cancel-btn">Cancel</button>
+          <button type="submit" class="btn-primary" id="form-submit-btn">Save Subscription</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: NOTIFICATIONS CENTER -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="notifications-modal">
+    <div class="modal-container notifications-modal-container">
+      <div class="modal-header">
+        <h2>Notifications Center</h2>
+        <button class="icon-btn close-modal-btn" id="close-notifications-btn" aria-label="Close modal">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="notifications-center-content">
+        <div class="notifications-status-card">
+          <div class="status-row">
+            <span>Browser Native Notifications</span>
+            <span class="status-indicator" id="native-permission-badge">Checking...</span>
+          </div>
+          <button class="btn-action-outline btn-sm" id="notifications-test-btn" style="margin-top: 8px;">
+            <i data-lucide="bell-ring" style="width: 14px; height: 14px;"></i>
+            <span>Send Test Notification</span>
+          </button>
+        </div>
+        
+        <h3>Recent Alerts</h3>
+        <div class="notifications-history-list" id="notifications-history-list">
+          <!-- Injected dynamically by JS -->
+          <div class="empty-state">
+            <i data-lucide="bell-off"></i>
+            <p>No active alerts or reminders.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App logic file -->
+  <script src="app.js"></script>
+</body>
+</html>
