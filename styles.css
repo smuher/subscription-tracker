@@ -519,13 +519,17 @@ body.light-theme .theme-toggle-btn .moon-icon {
 }
 
 .filter-chip {
-  padding: 8px 16px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   border-radius: 20px;
-  font-size: 13px;
-  white-space: nowrap;
+  font-size: 12px;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .filter-chip.active {
@@ -1699,6 +1703,13 @@ textarea {
 
 /* Tablet & Smaller Screens */
 @media (min-width: 600px) {
+  .filter-chip {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1824,6 +1835,7 @@ textarea {
   .main-content {
     margin-left: 260px;
     padding: 32px 40px;
+    width: calc(100% - 260px);
   }
 
   /* Header adjustments */
