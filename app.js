@@ -20,7 +20,8 @@ let state = {
 const STORAGE_KEYS = {
   SUBS: 'subtrack_subscriptions',
   DISMISSED: 'subtrack_dismissed_alerts',
-  THEME: 'subtrack_theme'
+  THEME: 'subtrack_theme',
+  IOS_BANNER_DISMISSED: 'subtrack_ios_banner_dismissed'
 };
 
 const CATEGORY_COLORS = {
@@ -250,6 +251,15 @@ function setupEventListeners() {
   const enableNotificationsBtn = document.getElementById('enable-notifications-btn');
   if (enableNotificationsBtn) {
     enableNotificationsBtn.addEventListener('click', requestNotificationPermission);
+  }
+
+  const dismissIosBannerBtn = document.getElementById('dismiss-ios-banner-btn');
+  if (dismissIosBannerBtn) {
+    dismissIosBannerBtn.addEventListener('click', () => {
+      localStorage.setItem(STORAGE_KEYS.IOS_BANNER_DISMISSED, 'true');
+      const banner = document.getElementById('ios-fallback-banner');
+      if (banner) banner.style.display = 'none';
+    });
   }
 
   // Test Notification button
@@ -1140,13 +1150,47 @@ function escapeHTML(str) {
 // ==========================================================================
 // NOTIFICATIONS SYSTEM (LOCAL BROWSER API)
 // ==========================================================================
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+function isStandalonePWA() {
+  return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+function getIOSVersion() {
+  const match = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+  if (!match) return null;
+  return parseInt(match[1], 10) + parseInt(match[2], 10) / 10;
+}
+
+// iOS Safari only supports the Notification API for apps installed to the
+// Home Screen on iOS 16.4+; a regular Safari tab (or an older iOS) can't
+// reliably deliver native alerts, so those cases fall back to in-app alerts.
+function nativeNotificationsSupported() {
+  if (!('Notification' in window)) return false;
+  if (isIOSDevice()) {
+    const version = getIOSVersion();
+    return isStandalonePWA() && version !== null && version >= 16.4;
+  }
+  return true;
+}
+
 function checkNotificationPermissionsOnLoad() {
   const permBar = document.getElementById('notification-permission-bar');
-  if (!('Notification' in window)) {
+  const iosBanner = document.getElementById('ios-fallback-banner');
+
+  if (!nativeNotificationsSupported()) {
     if (permBar) permBar.style.display = 'none';
+    if (iosBanner) {
+      const dismissed = localStorage.getItem(STORAGE_KEYS.IOS_BANNER_DISMISSED) === 'true';
+      iosBanner.style.display = dismissed ? 'none' : 'flex';
+    }
+    updatePermissionBadge();
     return;
   }
 
+  if (iosBanner) iosBanner.style.display = 'none';
   updatePermissionBadge();
 
   if (Notification.permission === 'default') {
@@ -1160,8 +1204,8 @@ function updatePermissionBadge() {
   const badge = document.getElementById('native-permission-badge');
   if (!badge) return;
 
-  if (!('Notification' in window)) {
-    badge.textContent = 'Not Supported';
+  if (!nativeNotificationsSupported()) {
+    badge.textContent = 'In-App Only';
     badge.className = 'status-indicator denied';
     return;
   }
@@ -1179,8 +1223,8 @@ function updatePermissionBadge() {
 }
 
 function requestNotificationPermission() {
-  if (!('Notification' in window)) return;
-  
+  if (!nativeNotificationsSupported()) return;
+
   Notification.requestPermission().then(permission => {
     updatePermissionBadge();
     const permBar = document.getElementById('notification-permission-bar');
@@ -1244,8 +1288,8 @@ function checkUpcomingRenewals() {
 }
 
 function sendLocalPushNotification(title, body) {
-  if (!('Notification' in window)) return;
-  
+  if (!nativeNotificationsSupported()) return;
+
   if (Notification.permission === 'granted') {
     try {
       new Notification(title, {
@@ -1259,11 +1303,11 @@ function sendLocalPushNotification(title, body) {
 }
 
 function sendTestNotification() {
-  if (!('Notification' in window)) {
-    alert('Notifications are not supported in this browser.');
+  if (!nativeNotificationsSupported()) {
+    alert('Native notifications aren\'t supported in this browser. SubTrack will still show renewal and reminder alerts in-app via the bell icon and Dashboard.');
     return;
   }
-  
+
   if (Notification.permission !== 'granted') {
     Notification.requestPermission().then(permission => {
       updatePermissionBadge();

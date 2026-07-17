@@ -103,6 +103,18 @@
             <button class="btn-alert-action" id="enable-notifications-btn">Enable</button>
           </div>
 
+          <!-- iOS / Unsupported Browser Fallback Banner -->
+          <div class="alert-bar alert-bar-info" id="ios-fallback-banner" style="display: none;">
+            <div class="alert-content">
+              <i data-lucide="smartphone" class="alert-icon text-indigo"></i>
+              <div class="alert-text">
+                <span class="alert-title">In-App Alerts Active</span>
+                <span class="alert-desc">Your browser doesn't support background push alerts, so renewal &amp; reminder notifications will show here in the app and via the bell icon whenever you open SubTrack.</span>
+              </div>
+            </div>
+            <button class="btn-alert-action" id="dismiss-ios-banner-btn">Got it</button>
+          </div>
+
           <!-- Active Quick Filter chips -->
           <div class="filter-chips-container">
             <button class="filter-chip active" data-filter-type="all">All Subscriptions</button>

@@ -509,6 +509,21 @@ body.light-theme .theme-toggle-btn .moon-icon {
   background: var(--primary-hover);
 }
 
+.alert-bar-info {
+  border-color: var(--info);
+}
+
+.alert-bar-info .btn-alert-action {
+  background: transparent;
+  color: var(--info);
+  border: 1px solid var(--info);
+}
+
+.alert-bar-info .btn-alert-action:hover {
+  background: var(--info);
+  color: white;
+}
+
 /* Dashboard Filter Chips */
 .filter-chips-container {
   display: flex;
