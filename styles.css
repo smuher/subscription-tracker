@@ -800,7 +800,7 @@ body.light-theme .stat-icon-wrapper {
   flex: 1;
 }
 
-.search-input-wrapper input {
+.search-input-wrapper input[type="text"] {
   width: 100%;
   min-height: 48px;
   background: var(--bg-input);
@@ -812,7 +812,7 @@ body.light-theme .stat-icon-wrapper {
   outline: none;
 }
 
-.search-input-wrapper input:focus {
+.search-input-wrapper input[type="text"]:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
