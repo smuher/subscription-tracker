@@ -781,6 +781,11 @@ function renderSubscriptionsList() {
               <div class="sub-meta-row">
                 <span class="sub-badge ${badgeClass}">${typeLabel}</span>
                 <span class="sub-category-tag">${sub.category}</span>
+                ${sub.manageUrl ? `
+                  <a href="${sub.manageUrl}" target="_blank" rel="noopener noreferrer" class="sub-manage-icon-link" title="Manage subscription" aria-label="Manage subscription">
+                    <i data-lucide="external-link"></i>
+                  </a>
+                ` : ''}
               </div>
             </div>
           </div>

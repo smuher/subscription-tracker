@@ -1023,6 +1023,28 @@ body.light-theme .stat-icon-wrapper {
   color: var(--text-secondary);
 }
 
+.sub-manage-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: 6px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sub-manage-icon-link:hover {
+  color: var(--primary);
+  background: var(--primary-glow);
+}
+
+.sub-manage-icon-link i {
+  width: 13px;
+  height: 13px;
+}
+
 .sub-pricing-block {
   display: flex;
   flex-direction: column;
