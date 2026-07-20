@@ -1323,11 +1323,11 @@ body.light-theme .notes-block {
   letter-spacing: 0.05em;
 }
 
-.analytics-table tr:hover td {
+.analytics-table tr:hover td:not(:first-child) {
   background: rgba(255, 255, 255, 0.02);
 }
 
-body.light-theme .analytics-table tr:hover td {
+body.light-theme .analytics-table tr:hover td:not(:first-child) {
   background: rgba(0, 0, 0, 0.01);
 }
 
