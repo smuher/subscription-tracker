@@ -10,6 +10,7 @@
   --bg-app: hsl(230, 25%, 8%);
   --bg-card: rgba(22, 24, 37, 0.65);
   --bg-card-hover: rgba(30, 33, 50, 0.8);
+  --bg-card-solid: hsl(233, 24%, 13%);
   --bg-input: rgba(13, 15, 25, 0.6);
   --border-color: rgba(255, 255, 255, 0.08);
   --border-focus: hsl(245, 80%, 65%);
@@ -46,6 +47,7 @@ body.light-theme {
   --bg-app: hsl(220, 30%, 96%);
   --bg-card: rgba(255, 255, 255, 0.75);
   --bg-card-hover: rgba(255, 255, 255, 0.9);
+  --bg-card-solid: hsl(0, 0%, 100%);
   --bg-input: rgba(255, 255, 255, 0.9);
   --border-color: rgba(0, 0, 0, 0.08);
   --border-focus: hsl(245, 75%, 55%);
@@ -1285,6 +1287,7 @@ body.light-theme .notes-block {
 .table-container {
   overflow-x: auto;
   margin-top: 12px;
+  transform: translateZ(0);
 }
 
 .analytics-table {
@@ -1297,6 +1300,19 @@ body.light-theme .notes-block {
 .analytics-table th, .analytics-table td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.analytics-table th:first-child,
+.analytics-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-card-solid);
+  box-shadow: 1px 0 0 var(--border-color);
+}
+
+.analytics-table th:first-child {
+  z-index: 2;
 }
 
 .analytics-table th {
