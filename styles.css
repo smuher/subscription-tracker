@@ -1315,6 +1315,40 @@ body.light-theme .analytics-table tr:hover td {
   background: rgba(0, 0, 0, 0.01);
 }
 
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.sortable-th:hover {
+  color: var(--primary);
+}
+
+.sortable-th.sort-asc::after {
+  content: ' \25B2';
+  font-size: 9px;
+  color: var(--primary);
+}
+
+.sortable-th.sort-desc::after {
+  content: ' \25BC';
+  font-size: 9px;
+  color: var(--primary);
+}
+
+.table-manage-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border-color);
+  text-underline-offset: 2px;
+}
+
+.table-manage-link:hover {
+  color: var(--primary);
+  text-decoration-color: var(--primary);
+}
+
 /* Backup and restore panel */
 .backup-restore-card {
   min-height: auto;

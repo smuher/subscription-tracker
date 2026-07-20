@@ -14,7 +14,9 @@ let state = {
   theme: 'dark', // 'dark', 'light'
   categoryFilter: 'all',
   searchQuery: '',
-  sortKey: 'renewal-soon'
+  sortKey: 'renewal-soon',
+  tableSortKey: null, // Comparison table column currently sorted, e.g. 'name', 'monthly'
+  tableSortDir: 'asc'
 };
 
 const STORAGE_KEYS = {
@@ -251,6 +253,15 @@ function setupEventListeners() {
   const enableNotificationsBtn = document.getElementById('enable-notifications-btn');
   if (enableNotificationsBtn) {
     enableNotificationsBtn.addEventListener('click', requestNotificationPermission);
+  }
+
+  const comparisonTableHead = document.querySelector('#comparison-table thead');
+  if (comparisonTableHead) {
+    comparisonTableHead.addEventListener('click', (e) => {
+      const th = e.target.closest('th[data-sort-key]');
+      if (!th) return;
+      handleComparisonSort(th.dataset.sortKey);
+    });
   }
 
   const dismissIosBannerBtn = document.getElementById('dismiss-ios-banner-btn');
@@ -923,6 +934,7 @@ function renderAnalytics() {
     `;
     donutLegend.innerHTML = '';
     barLegend.innerHTML = '';
+    updateComparisonSortIndicators();
     if (window.lucide) window.lucide.createIcons();
     return;
   }
@@ -1069,26 +1081,100 @@ function renderAnalytics() {
   }).join('');
 
   // 3. Comparison Table rendering
-  tableBody.innerHTML = state.subscriptions.map(s => {
+  let comparisonRows = state.subscriptions.map(s => {
     const costs = calculateNormalizedCosts(s);
-    const pct = ((costs.monthly / totalMonthlySpend) * 100).toFixed(1);
+    const pct = totalMonthlySpend ? (costs.monthly / totalMonthlySpend) * 100 : 0;
+    return { sub: s, costs, pct, cycleDays: getCycleDays(s) };
+  });
+
+  if (state.tableSortKey) {
+    comparisonRows = sortComparisonRows(comparisonRows, state.tableSortKey, state.tableSortDir);
+  }
+
+  tableBody.innerHTML = comparisonRows.map(({ sub: s, costs, pct }) => {
     const typeLabel = s.type === 'service' ? 'Service' : 'Product';
     const typeBadge = s.type === 'service' ? 'sub-badge-service' : 'sub-badge-product';
+    const displayName = escapeHTML(getDisplayName(s));
+    const nameCell = (s.manageUrl && isSafeUrl(s.manageUrl))
+      ? `<a href="${s.manageUrl}" target="_blank" rel="noopener noreferrer" class="table-manage-link">${displayName}</a>`
+      : displayName;
 
     return `
       <tr>
-        <td style="font-weight:600;">${getDisplayName(s)}</td>
+        <td style="font-weight:600;">${nameCell}</td>
         <td><span class="sub-badge ${typeBadge}">${typeLabel}</span></td>
         <td>every ${s.billingInterval} ${s.billingPeriod}</td>
         <td>${s.currency}${s.cost.toFixed(2)}</td>
         <td style="font-weight:600;">${s.currency}${costs.monthly.toFixed(2)}</td>
         <td>${s.currency}${costs.annual.toFixed(2)}</td>
-        <td style="font-weight:700; color:var(--primary);">${pct}%</td>
+        <td style="font-weight:700; color:var(--primary);">${pct.toFixed(1)}%</td>
       </tr>
     `;
   }).join('');
 
+  updateComparisonSortIndicators();
   if (window.lucide) window.lucide.createIcons();
+}
+
+// Approximate days-per-cycle, used only to order the Billing Interval column sensibly
+function getCycleDays(sub) {
+  const daysPerUnit = sub.billingPeriod === 'weeks' ? 7 : sub.billingPeriod === 'years' ? 365 : 30;
+  return sub.billingInterval * daysPerUnit;
+}
+
+function sortComparisonRows(rows, key, dir) {
+  const factor = dir === 'asc' ? 1 : -1;
+  return rows.slice().sort((a, b) => {
+    let result = 0;
+    switch (key) {
+      case 'name':
+        result = getDisplayName(a.sub).localeCompare(getDisplayName(b.sub));
+        break;
+      case 'type':
+        result = a.sub.type.localeCompare(b.sub.type);
+        break;
+      case 'billing':
+        result = a.cycleDays - b.cycleDays;
+        break;
+      case 'cost':
+        result = a.sub.cost - b.sub.cost;
+        break;
+      case 'monthly':
+        result = a.costs.monthly - b.costs.monthly;
+        break;
+      case 'annual':
+        result = a.costs.annual - b.costs.annual;
+        break;
+      case 'pct':
+        result = a.pct - b.pct;
+        break;
+    }
+    return result * factor;
+  });
+}
+
+function updateComparisonSortIndicators() {
+  document.querySelectorAll('#comparison-table thead th[data-sort-key]').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.sortKey === state.tableSortKey) {
+      th.classList.add(state.tableSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+}
+
+function handleComparisonSort(key) {
+  if (state.tableSortKey === key) {
+    state.tableSortDir = state.tableSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.tableSortKey = key;
+    state.tableSortDir = 'asc';
+  }
+  renderAnalytics();
+}
+
+// Only allow http(s) links as clickable table cells to avoid javascript: URI injection via imported data
+function isSafeUrl(url) {
+  return /^https?:\/\//i.test(url);
 }
 
 // Helper Date formatter
