@@ -1917,6 +1917,12 @@ textarea {
     box-shadow: 0 4px 12px var(--primary-glow);
   }
 
+  .sidebar nav button.nav-item.active:hover,
+  body.light-theme .sidebar nav button.nav-item.active:hover {
+    background: var(--primary-hover);
+    color: white;
+  }
+
   .sidebar-footer {
     padding: 24px 16px;
     border-top: 1px solid var(--border-color);
