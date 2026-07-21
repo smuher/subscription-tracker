@@ -1,4 +1,4 @@
-const CACHE_NAME = 'subtrack-cache-v1.0.2';
+const CACHE_NAME = 'subtrack-cache-v1.0.3';
 const CORE_ASSETS = [
   './',
   './index.html',
