@@ -1003,10 +1003,14 @@ function renderAnalytics() {
   const cx = 80;
   const cy = 80;
   const circumference = 2 * Math.PI * radius; // ~345.57
-  
+
   let currentOffset = 0;
   const sortedCategories = Object.entries(categorySpends).sort((a,b) => b[1] - a[1]);
-  
+
+  // Segments are rotated -90deg (via this group) so they start at 12 o'clock instead of 3 o'clock.
+  // The center text is drawn outside this group so it stays upright.
+  donutHTML += `<g transform="rotate(-90 ${cx} ${cy})">`;
+
   sortedCategories.forEach(([cat, val]) => {
     const percentage = val / totalMonthlySpend;
     const dashArray = `${percentage * circumference} ${circumference}`;
@@ -1028,10 +1032,13 @@ function renderAnalytics() {
 
   donutHTML += `
     <circle cx="${cx}" cy="${cy}" r="40" fill="var(--bg-app)" style="transition: fill var(--transition-normal);"></circle>
-    <text x="${cx}" y="${cy - 4}" text-anchor="middle" class="donut-center-text" fill="var(--text-primary)">
+  </g>`;
+
+  donutHTML += `
+    <text x="${cx}" y="${cy - 3}" text-anchor="middle" class="donut-center-text" fill="var(--text-primary)">
       ${currencySymbol}${formatCurrency(totalMonthlySpend, 0)}
     </text>
-    <text x="${cx}" y="${cy + 12}" text-anchor="middle" class="donut-center-subtext" fill="var(--text-muted)">
+    <text x="${cx}" y="${cy + 8}" text-anchor="middle" class="donut-center-subtext" fill="var(--text-muted)">
       / month
     </text>
   </svg>`;

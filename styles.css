@@ -1403,10 +1403,6 @@ body.light-theme .analytics-table tr:hover td:not(:first-child) {
 }
 
 /* SVG Chart Specific Styles */
-svg.donut-chart {
-  transform: rotate(-90deg);
-}
-
 .donut-segment {
   fill: none;
   stroke-width: 14;
@@ -1421,12 +1417,12 @@ svg.donut-chart {
 .donut-center-text {
   fill: var(--text-primary);
   font-weight: 800;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .donut-center-subtext {
   fill: var(--text-muted);
-  font-size: 5px;
+  font-size: 10px;
   font-weight: 500;
 }
 
