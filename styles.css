@@ -1065,6 +1065,12 @@ body.light-theme .stat-icon-wrapper {
   color: var(--text-muted);
 }
 
+.sub-renewal-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 /* Card details divider & expandable body */
 .sub-card-divider {
   height: 1px;

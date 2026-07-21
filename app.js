@@ -42,6 +42,7 @@ const CATEGORY_COLORS = {
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   loadLocalStorage();
+  normalizeRenewalDates();
   applySavedTheme();
   setupEventListeners();
   switchTab(state.activeTab);
@@ -347,6 +348,40 @@ function getTodayDateString() {
   return d.toISOString().split('T')[0];
 }
 
+// Advances a subscription's nextRenewalDate forward by its billing cadence
+// until it is no longer in the past. Returns true if the date was changed.
+function rollForwardRenewalDate(sub) {
+  const todayStr = getTodayDateString();
+  if (!sub.nextRenewalDate || sub.nextRenewalDate >= todayStr) return false;
+
+  const interval = parseInt(sub.billingInterval) || 1;
+  const period = sub.billingPeriod;
+  const today = new Date(todayStr + 'T00:00:00');
+  const date = new Date(sub.nextRenewalDate + 'T00:00:00');
+
+  while (date < today) {
+    if (period === 'weeks') {
+      date.setDate(date.getDate() + 7 * interval);
+    } else if (period === 'years') {
+      date.setFullYear(date.getFullYear() + interval);
+    } else {
+      date.setMonth(date.getMonth() + interval);
+    }
+  }
+
+  sub.nextRenewalDate = date.toISOString().split('T')[0];
+  return true;
+}
+
+// Rolls forward any past-due renewal dates across all subscriptions and persists the result.
+function normalizeRenewalDates() {
+  let changed = false;
+  state.subscriptions.forEach(sub => {
+    if (rollForwardRenewalDate(sub)) changed = true;
+  });
+  if (changed) saveLocalStorage();
+}
+
 // ==========================================================================
 // CALCULATIONS & FORMULA INTEGRITY
 // ==========================================================================
@@ -426,6 +461,8 @@ function handleFormSubmit(e) {
     reminderText: formData.get('reminderText').trim(),
     createdAt: subId ? (state.subscriptions.find(s => s.id === subId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
   };
+
+  rollForwardRenewalDate(subData);
 
   if (subId) {
     // Edit existing
@@ -803,6 +840,7 @@ function renderSubscriptionsList() {
           <div class="sub-pricing-block">
             <span class="sub-price">${sub.currency}${sub.cost.toFixed(2)}</span>
             <span class="sub-cycle">every ${sub.billingInterval} ${sub.billingPeriod}</span>
+            <span class="sub-renewal-date">Renews ${formatDateString(sub.nextRenewalDate)}</span>
           </div>
         </div>
 
