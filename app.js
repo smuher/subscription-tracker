@@ -382,6 +382,11 @@ function normalizeRenewalDates() {
   if (changed) saveLocalStorage();
 }
 
+// Formats a number as a currency amount with thousands separators, e.g. 1234.5 -> "1,234.50"
+function formatCurrency(amount, decimals = 2) {
+  return amount.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
 // ==========================================================================
 // CALCULATIONS & FORMULA INTEGRITY
 // ==========================================================================
@@ -622,8 +627,8 @@ function renderDashboard() {
 
   // Update UI Stats
   const currencySymbol = state.subscriptions[0]?.currency || '$';
-  document.getElementById('stat-monthly-cost').textContent = `${currencySymbol}${monthlyTotal.toFixed(2)}`;
-  document.getElementById('stat-annual-cost').textContent = `${currencySymbol}${annualTotal.toFixed(2)}`;
+  document.getElementById('stat-monthly-cost').textContent = `${currencySymbol}${formatCurrency(monthlyTotal)}`;
+  document.getElementById('stat-annual-cost').textContent = `${currencySymbol}${formatCurrency(annualTotal)}`;
   
   if (state.activeFilter === 'all') {
     document.getElementById('stat-active-count').textContent = state.subscriptions.length;
@@ -711,7 +716,7 @@ function renderDashboardAlerts() {
             </div>
           </div>
           <div class="list-item-aside">
-            <span class="list-item-cost">${sub.currency}${sub.cost.toFixed(2)}</span>
+            <span class="list-item-cost">${sub.currency}${formatCurrency(sub.cost)}</span>
             <span class="list-item-meta">every ${sub.billingInterval} ${sub.billingPeriod}</span>
           </div>
         </div>
@@ -838,7 +843,7 @@ function renderSubscriptionsList() {
             </div>
           </div>
           <div class="sub-pricing-block">
-            <span class="sub-price">${sub.currency}${sub.cost.toFixed(2)}</span>
+            <span class="sub-price">${sub.currency}${formatCurrency(sub.cost)}</span>
             <span class="sub-cycle">every ${sub.billingInterval} ${sub.billingPeriod}</span>
             <span class="sub-renewal-date">Renews ${formatDateString(sub.nextRenewalDate)}</span>
           </div>
@@ -859,14 +864,14 @@ function renderSubscriptionsList() {
               <span class="expanded-meta-label">Monthly Equivalent</span>
               <span class="expanded-meta-value">
                 <i data-lucide="trending-up"></i>
-                <span>${sub.currency}${costs.monthly.toFixed(2)}</span>
+                <span>${sub.currency}${formatCurrency(costs.monthly)}</span>
               </span>
             </div>
             <div class="expanded-meta-item">
               <span class="expanded-meta-label">Annual Equivalent</span>
               <span class="expanded-meta-value">
                 <i data-lucide="coins"></i>
-                <span>${sub.currency}${costs.annual.toFixed(2)}</span>
+                <span>${sub.currency}${formatCurrency(costs.annual)}</span>
               </span>
             </div>
           </div>
@@ -1016,7 +1021,7 @@ function renderAnalytics() {
               stroke="${color}" 
               stroke-dasharray="${dashArray}" 
               stroke-dashoffset="${dashOffset}">
-        <title>${cat}: ${currencySymbol}${val.toFixed(2)}/mo (${(percentage*100).toFixed(1)}%)</title>
+        <title>${cat}: ${currencySymbol}${formatCurrency(val)}/mo (${(percentage*100).toFixed(1)}%)</title>
       </circle>
     `;
   });
@@ -1024,7 +1029,7 @@ function renderAnalytics() {
   donutHTML += `
     <circle cx="${cx}" cy="${cy}" r="40" fill="var(--bg-app)" style="transition: fill var(--transition-normal);"></circle>
     <text x="${cx}" y="${cy - 4}" text-anchor="middle" class="donut-center-text" fill="var(--text-primary)">
-      ${currencySymbol}${totalMonthlySpend.toFixed(0)}
+      ${currencySymbol}${formatCurrency(totalMonthlySpend, 0)}
     </text>
     <text x="${cx}" y="${cy + 12}" text-anchor="middle" class="donut-center-subtext" fill="var(--text-muted)">
       / month
@@ -1089,11 +1094,11 @@ function renderAnalytics() {
             x="${x}" y="${y}" 
             width="${barWidth}" height="${normHeight}" 
             rx="6" fill="${color}">
-        <title>${getGroupDisplayName(item)}: ${currencySymbol}${item.monthly.toFixed(2)}/mo</title>
+        <title>${getGroupDisplayName(item)}: ${currencySymbol}${formatCurrency(item.monthly)}/mo</title>
       </rect>
       <!-- Value Label -->
       <text x="${x + barWidth/2}" y="${y - 6}" text-anchor="middle" class="bar-chart-text" fill="var(--text-primary)" style="font-weight:700; font-size:9px;">
-        ${currencySymbol}${item.monthly.toFixed(0)}
+        ${currencySymbol}${formatCurrency(item.monthly, 0)}
       </text>
       <!-- Name Tag -->
       <text x="${x + barWidth/2}" y="${chartHeight + 30}" text-anchor="middle" class="bar-chart-text" style="font-size:9px;">
@@ -1113,7 +1118,7 @@ function renderAnalytics() {
       <div class="legend-item">
         <span class="legend-color" style="background: ${color}; border-radius: 2px; width: 12px; height: 8px;"></span>
         <span class="legend-text" title="${label}">${label}</span>
-        <span class="legend-value">${currencySymbol}${item.monthly.toFixed(2)}</span>
+        <span class="legend-value">${currencySymbol}${formatCurrency(item.monthly)}</span>
       </div>
     `;
   }).join('');
@@ -1142,9 +1147,9 @@ function renderAnalytics() {
         <td style="font-weight:600;">${nameCell}</td>
         <td><span class="sub-badge ${typeBadge}">${typeLabel}</span></td>
         <td>every ${s.billingInterval} ${s.billingPeriod}</td>
-        <td>${s.currency}${s.cost.toFixed(2)}</td>
-        <td style="font-weight:600;">${s.currency}${costs.monthly.toFixed(2)}</td>
-        <td>${s.currency}${costs.annual.toFixed(2)}</td>
+        <td>${s.currency}${formatCurrency(s.cost)}</td>
+        <td style="font-weight:600;">${s.currency}${formatCurrency(costs.monthly)}</td>
+        <td>${s.currency}${formatCurrency(costs.annual)}</td>
         <td style="font-weight:700; color:var(--primary);">${pct.toFixed(1)}%</td>
       </tr>
     `;
@@ -1391,7 +1396,7 @@ function checkUpcomingRenewals() {
         
         sendLocalPushNotification(
           `${getDisplayName(sub)} Renewal Alert`,
-          `Your subscription to ${getDisplayName(sub)} of ${sub.currency}${sub.cost.toFixed(2)} ${renewalMessage}`
+          `Your subscription to ${getDisplayName(sub)} of ${sub.currency}${formatCurrency(sub.cost)} ${renewalMessage}`
         );
         newNotificationsSent = true;
       }
@@ -1521,7 +1526,7 @@ function renderNotificationsCenter() {
       activeAlerts.push({
         id: alertId,
         title: `${getDisplayName(sub)} Renewal`,
-        body: `Cost: ${sub.currency}${sub.cost.toFixed(2)} ${renewalMessage}`,
+        body: `Cost: ${sub.currency}${formatCurrency(sub.cost)} ${renewalMessage}`,
         time: sub.nextRenewalDate,
         dismissed: state.dismissedAlerts.includes(alertId)
       });
