@@ -1229,6 +1229,37 @@ body.light-theme .notes-block {
   min-height: 220px;
 }
 
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+  background: var(--bg-card);
+  backdrop-filter: var(--card-blur);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.chart-tooltip.visible {
+  opacity: 1;
+}
+
+.chart-tooltip .tooltip-name {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chart-tooltip .tooltip-value {
+  color: var(--text-secondary);
+  margin-left: 6px;
+}
+
 .empty-chart-placeholder {
   display: flex;
   flex-direction: column;

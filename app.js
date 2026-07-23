@@ -51,6 +51,18 @@ document.addEventListener('DOMContentLoaded', () => {
   registerServiceWorker();
 });
 
+// Re-renders the active tab on resize so charts that size themselves off container width
+// (e.g. the analytics bar chart) don't go stale if the window is resized while left open.
+window.addEventListener('resize', debounce(() => renderAll(), 150));
+
+function debounce(fn, delayMs) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delayMs);
+  };
+}
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker.js').catch((err) => {
@@ -1133,25 +1145,64 @@ function renderAnalytics() {
 
   // 2. Monthly Expense Breakdown (Top Subscriptions Bar Chart)
   // Group by subscription name (rolling up same-company products), then sort by highest monthly cost
-  const topSubs = groupSubscriptionsByName(state.subscriptions)
-    .sort((a,b) => b.monthly - a.monthly)
-    .slice(0, 5); // Limit to top 5
+  const sortedGroups = groupSubscriptionsByName(state.subscriptions)
+    .sort((a,b) => b.monthly - a.monthly);
 
-  const maxVal = Math.max(...topSubs.map(item => item.monthly), 1);
+  // Top 5 + Other is a readability choice, not a width-fitting requirement — the scale-down
+  // logic below always fits whatever count is chosen, so this number is safe to change freely.
+  const TOP_N = 5;
+  const topSubs = sortedGroups.slice(0, TOP_N);
+  const remainingGroups = sortedGroups.slice(TOP_N);
+
+  // Other is ranked by its aggregate value and slotted into place, rather than always
+  // tacked on at the end — its combined total can outrank individual top-N items.
+  let displayItems = topSubs;
+  if (remainingGroups.length > 0) {
+    const otherItem = {
+      name: 'Other',
+      type: 'other',
+      monthly: remainingGroups.reduce((sum, g) => sum + g.monthly, 0),
+      // Sum each group's own subscription count, not the number of groups, so a rolled-up
+      // product group folded into Other is still counted by its underlying subscriptions.
+      count: remainingGroups.reduce((sum, g) => sum + g.count, 0)
+    };
+    displayItems = [...topSubs, otherItem].sort((a, b) => b.monthly - a.monthly);
+  }
+
+  const maxVal = Math.max(...displayItems.map(item => item.monthly), 1);
   const chartHeight = 160;
-  const chartWidth = 240;
-  const barWidth = 24;
-  const spacing = 18;
-  const startX = 20;
-  
-  let barHTML = `<svg width="100%" height="220" viewBox="0 0 ${chartWidth} 200" style="overflow: visible;">`;
-  
-  topSubs.forEach((item, idx) => {
+  // Bars start at a natural size; on narrower (mobile) cards where that would overflow, scale
+  // bars down to fit exactly, so the chart never scrolls or spills past its container;
+  // .chart-container centers whatever width results.
+  const n = displayItems.length;
+  const naturalBarWidth = 40;
+  const naturalSpacing = 24;
+  const naturalPadding = 24;
+  const naturalChartWidth = naturalPadding * 2 + n * naturalBarWidth + (n - 1) * naturalSpacing;
+  const containerWidth = barContainer.clientWidth || naturalChartWidth;
+  const scale = Math.min(1, containerWidth / naturalChartWidth);
+  const barWidth = naturalBarWidth * scale;
+  const spacing = naturalSpacing * scale;
+  const padding = naturalPadding * scale;
+  const chartWidth = padding * 2 + n * barWidth + (n - 1) * spacing;
+  const maxNameChars = Math.max(4, Math.floor(barWidth / 3.2));
+
+  // Single source of truth for type -> color, shared by the bar fill and legend swatch below.
+  const TYPE_COLORS = {
+    service: { bar: 'url(#service-glow)', legend: 'var(--service-color)' },
+    product: { bar: 'url(#product-glow)', legend: 'var(--product-color)' },
+    other: { bar: 'url(#other-glow)', legend: 'var(--text-muted)' }
+  };
+  const getDisplayLabel = item => item.type === 'other' ? `Other (${item.count})` : getGroupDisplayName(item);
+
+  let barHTML = `<svg width="${chartWidth}" height="220" viewBox="0 0 ${chartWidth} 200" style="overflow: visible;">`;
+
+  displayItems.forEach((item, idx) => {
     const normHeight = (item.monthly / maxVal) * chartHeight;
-    const x = startX + idx * (barWidth + spacing);
+    const x = padding + idx * (barWidth + spacing);
     const y = chartHeight - normHeight + 15;
-    const color = item.type === 'service' ? 'url(#service-glow)' : 'url(#product-glow)';
-    
+    const color = (TYPE_COLORS[item.type] || TYPE_COLORS.other).bar;
+
     // Gradient definitions
     if (idx === 0) {
       barHTML += `
@@ -1164,36 +1215,49 @@ function renderAnalytics() {
             <stop offset="0%" stop-color="hsl(170, 75%, 50%)"/>
             <stop offset="100%" stop-color="hsl(190, 80%, 40%)"/>
           </linearGradient>
+          <linearGradient id="other-glow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="hsl(230, 10%, 65%)"/>
+            <stop offset="100%" stop-color="hsl(230, 10%, 45%)"/>
+          </linearGradient>
         </defs>
       `;
     }
 
+    const tooltipName = escapeHTML(getDisplayLabel(item));
+    const tooltipValue = `${currencySymbol}${formatCurrency(item.monthly)}/mo`;
+    // Truncate on the raw name first (so length math isn't thrown off by HTML entities),
+    // then escape the result — this string is inserted directly into the SVG markup below.
+    const truncatedName = item.name.length > maxNameChars ? item.name.substring(0, maxNameChars - 1) + '..' : item.name;
+    const nameTagText = escapeHTML(truncatedName);
+
     barHTML += `
       <!-- Bar -->
-      <rect class="bar-chart-rect" 
-            x="${x}" y="${y}" 
-            width="${barWidth}" height="${normHeight}" 
-            rx="6" fill="${color}">
-        <title>${getGroupDisplayName(item)}: ${currencySymbol}${formatCurrency(item.monthly)}/mo</title>
+      <rect class="bar-chart-rect"
+            x="${x}" y="${y}"
+            width="${barWidth}" height="${normHeight}"
+            rx="5" fill="${color}"
+            data-name="${tooltipName}" data-value="${escapeHTML(tooltipValue)}"
+            onmouseenter="showBarTooltip(event)" onmousemove="moveBarTooltip(event)" onmouseleave="hideBarTooltip()">
+        <title>${tooltipName}: ${tooltipValue}</title>
       </rect>
       <!-- Value Label -->
-      <text x="${x + barWidth/2}" y="${y - 6}" text-anchor="middle" class="bar-chart-text" fill="var(--text-primary)" style="font-weight:700; font-size:9px;">
+      <text x="${x + barWidth/2}" y="${y - 6}" text-anchor="middle" class="bar-chart-text" fill="var(--text-primary)" style="font-weight:700; font-size:7px;">
         ${currencySymbol}${formatCurrency(item.monthly, 0)}
       </text>
       <!-- Name Tag -->
-      <text x="${x + barWidth/2}" y="${chartHeight + 30}" text-anchor="middle" class="bar-chart-text" style="font-size:9px;">
-        ${item.name.length > 5 ? item.name.substring(0, 4) + '..' : item.name}
+      <text x="${x + barWidth/2}" y="${chartHeight + 30}" text-anchor="middle" class="bar-chart-text" style="font-size:7px;">
+        ${nameTagText}
       </text>
     `;
   });
 
-  barHTML += `</svg>`;
+  barHTML += `</svg><div class="chart-tooltip" id="bar-chart-tooltip"></div>`;
   barContainer.innerHTML = barHTML;
 
   // Render Bar Legend
-  barLegend.innerHTML = topSubs.map(item => {
-    const color = item.type === 'service' ? 'var(--service-color)' : 'var(--product-color)';
-    const label = getGroupDisplayName(item);
+  barLegend.innerHTML = displayItems.map(item => {
+    const color = (TYPE_COLORS[item.type] || TYPE_COLORS.other).legend;
+    const label = escapeHTML(getDisplayLabel(item));
     return `
       <div class="legend-item">
         <span class="legend-color" style="background: ${color}; border-radius: 2px; width: 12px; height: 8px;"></span>
@@ -1237,6 +1301,59 @@ function renderAnalytics() {
 
   updateComparisonSortIndicators();
   if (window.lucide) window.lucide.createIcons();
+}
+
+// Cached per hover so moveBarTooltip's mousemove handler doesn't re-query the DOM or force a
+// layout read on every event — only showBarTooltip (once per mouseenter) pays that cost.
+let tooltipHoverContext = null;
+
+// Shows the bar-chart hover tooltip, reading its label from the hovered bar's data attributes.
+// dataset values are used as text (never innerHTML) so a subscription/group name containing
+// HTML — which decodes back to its raw form when read off the attribute — can't be parsed as markup.
+function showBarTooltip(evt) {
+  const tooltip = document.getElementById('bar-chart-tooltip');
+  const container = document.getElementById('bar-chart-container');
+  if (!tooltip || !container) return;
+  const { name, value } = evt.currentTarget.dataset;
+
+  tooltip.innerHTML = `<span class="tooltip-name"></span><span class="tooltip-value"></span>`;
+  tooltip.querySelector('.tooltip-name').textContent = name;
+  tooltip.querySelector('.tooltip-value').textContent = value;
+  tooltip.classList.add('visible');
+
+  tooltipHoverContext = {
+    tooltip,
+    containerRect: container.getBoundingClientRect(),
+    halfWidth: tooltip.offsetWidth / 2,
+    height: tooltip.offsetHeight
+  };
+  positionBarTooltip(evt);
+}
+
+// Keeps the bar-chart tooltip pinned above the cursor as it moves within a bar, clamped to
+// the viewport so it can't bleed off-screen on narrow (mobile) widths near a chart's edge.
+function moveBarTooltip(evt) {
+  positionBarTooltip(evt);
+}
+
+function positionBarTooltip(evt) {
+  if (!tooltipHoverContext) return;
+  const { tooltip, containerRect, halfWidth, height } = tooltipHoverContext;
+  const margin = 8;
+
+  const clampedClientX = Math.min(
+    Math.max(evt.clientX, halfWidth + margin),
+    window.innerWidth - halfWidth - margin
+  );
+  const clampedClientY = Math.max(evt.clientY, height + margin + 10);
+
+  tooltip.style.left = `${clampedClientX - containerRect.left}px`;
+  tooltip.style.top = `${clampedClientY - containerRect.top - 10}px`;
+}
+
+function hideBarTooltip() {
+  if (tooltipHoverContext) tooltipHoverContext.tooltip.classList.remove('visible');
+  tooltipHoverContext = null;
 }
 
 // Approximate days-per-cycle, used only to order the Billing Interval column sensibly
