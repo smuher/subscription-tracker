@@ -373,6 +373,23 @@ function rollForwardRenewalDate(sub) {
   return true;
 }
 
+// Computes the most recent renewal date on or before today by stepping nextRenewalDate backward by one billing cycle at a time.
+function getLastRenewalDate(sub) {
+  const interval = parseInt(sub.billingInterval) || 1;
+  const period = sub.billingPeriod;
+  const todayStr = getTodayDateString();
+  const today = new Date(todayStr + 'T00:00:00');
+  let date = new Date(sub.nextRenewalDate + 'T00:00:00');
+
+  while (date > today) {
+    if (period === 'weeks') date.setDate(date.getDate() - 7 * interval);
+    else if (period === 'years') date.setFullYear(date.getFullYear() - interval);
+    else date.setMonth(date.getMonth() - interval);
+  }
+
+  return date.toISOString().split('T')[0];
+}
+
 // Rolls forward any past-due renewal dates across all subscriptions and persists the result.
 function normalizeRenewalDates() {
   let changed = false;
@@ -648,7 +665,8 @@ function renderDashboard() {
 function renderDashboardAlerts() {
   const upcomingContainer = document.getElementById('upcoming-renewals-list');
   const customContainer = document.getElementById('custom-reminders-list');
-  
+  const recentlyRenewedContainer = document.getElementById('recently-renewed-list');
+
   const today = new Date();
   today.setHours(0,0,0,0);
   
@@ -656,15 +674,26 @@ function renderDashboardAlerts() {
   threeDaysFromNow.setDate(today.getDate() + 3);
   threeDaysFromNow.setHours(23,59,59,999);
 
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(today.getDate() - 7);
+  sevenDaysAgo.setHours(0,0,0,0);
+
   const upcomingList = [];
   const customList = [];
+  const recentlyRenewedList = [];
 
   state.subscriptions.forEach(sub => {
     const renewalDate = new Date(sub.nextRenewalDate + 'T00:00:00');
-    
+
     // 1. Upcoming renewals within 3 days
     if (renewalDate >= today && renewalDate <= threeDaysFromNow) {
       upcomingList.push(sub);
+    }
+
+    // 1b. Recently renewed within the last 7 days
+    const lastRenewalDate = new Date(getLastRenewalDate(sub) + 'T00:00:00');
+    if (lastRenewalDate >= sevenDaysAgo && lastRenewalDate <= today) {
+      recentlyRenewedList.push(sub);
     }
 
     // 2. Custom alerts
@@ -682,6 +711,8 @@ function renderDashboardAlerts() {
   upcomingList.sort((a,b) => new Date(a.nextRenewalDate) - new Date(b.nextRenewalDate));
   // Sort custom alerts by reminder date (closest first)
   customList.sort((a,b) => new Date(a.reminderDate) - new Date(b.reminderDate));
+  // Sort recently renewed by most recent first
+  recentlyRenewedList.sort((a,b) => new Date(getLastRenewalDate(b)) - new Date(getLastRenewalDate(a)));
 
   // Render Upcoming
   document.getElementById('upcoming-renewals-count').textContent = `${upcomingList.length} Soon`;
@@ -724,9 +755,51 @@ function renderDashboardAlerts() {
     }).join('');
   }
 
+  // Render Recently Renewed
+  document.getElementById('recently-renewed-count').textContent = `${recentlyRenewedList.length} This Week`;
+
+  if (recentlyRenewedList.length === 0) {
+    recentlyRenewedContainer.innerHTML = `
+      <div class="empty-state">
+        <i data-lucide="check-circle-2"></i>
+        <p>No renewals in the past week.</p>
+      </div>
+    `;
+  } else {
+    recentlyRenewedContainer.innerHTML = recentlyRenewedList.map(sub => {
+      const lastRenewalDate = getLastRenewalDate(sub);
+      const diffTime = Math.floor((today - new Date(lastRenewalDate + 'T00:00:00')) / (1000 * 60 * 60 * 24));
+      const daysStr = diffTime === 0 ? 'Today' : diffTime === 1 ? 'Yesterday' : `${diffTime} days ago`;
+      const dateFormatted = formatDateString(lastRenewalDate);
+      const isProduct = sub.type === 'product';
+      const indicatorColor = isProduct ? 'text-teal' : 'text-indigo';
+
+      return `
+        <div class="list-item-card">
+          <div class="list-item-main">
+            <div class="list-item-circle-badge" style="background: ${isProduct ? 'var(--product-gradient)' : 'var(--service-gradient)'}; color: white">
+              ${sub.name.charAt(0).toUpperCase()}
+            </div>
+            <div class="list-item-details">
+              <span class="list-item-name">${getDisplayName(sub)}</span>
+              <span class="list-item-meta">
+                <i data-lucide="calendar" class="${indicatorColor}" style="width:12px;height:12px;"></i>
+                <span>Renewed: ${daysStr} (${dateFormatted})</span>
+              </span>
+            </div>
+          </div>
+          <div class="list-item-aside">
+            <span class="list-item-cost">${sub.currency}${formatCurrency(sub.cost)}</span>
+            <span class="list-item-meta">every ${sub.billingInterval} ${sub.billingPeriod}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   // Render Custom alerts
   document.getElementById('custom-reminders-count').textContent = `${customList.length} Active`;
-  
+
   if (customList.length === 0) {
     customContainer.innerHTML = `
       <div class="empty-state">
