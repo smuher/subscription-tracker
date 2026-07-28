@@ -8,11 +8,13 @@
 // ==========================================================================
 let state = {
   subscriptions: [],
+  paymentMethods: [],
   dismissedAlerts: [], // Array of strings: 'subId-date-type'
   activeTab: 'dashboard',
   activeFilter: 'all', // 'all', 'service', 'product'
   theme: 'dark', // 'dark', 'light'
   categoryFilter: 'all',
+  accountFilter: 'all', // 'all', 'unassigned', or a payment method id
   searchQuery: '',
   sortKey: 'renewal-soon',
   tableSortKey: null, // Comparison table column currently sorted, e.g. 'name', 'monthly'
@@ -23,7 +25,8 @@ const STORAGE_KEYS = {
   SUBS: 'subtrack_subscriptions',
   DISMISSED: 'subtrack_dismissed_alerts',
   THEME: 'subtrack_theme',
-  IOS_BANNER_DISMISSED: 'subtrack_ios_banner_dismissed'
+  IOS_BANNER_DISMISSED: 'subtrack_ios_banner_dismissed',
+  PAYMENT_METHODS: 'subtrack_payment_methods'
 };
 
 const CATEGORY_COLORS = {
@@ -42,6 +45,8 @@ const CATEGORY_COLORS = {
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   loadLocalStorage();
+  normalizeSubscriptionStatuses();
+  autoResumePausedSubscriptions();
   normalizeRenewalDates();
   applySavedTheme();
   setupEventListeners();
@@ -76,6 +81,9 @@ function loadLocalStorage() {
     const storedSubs = localStorage.getItem(STORAGE_KEYS.SUBS);
     if (storedSubs) state.subscriptions = JSON.parse(storedSubs);
 
+    const storedPaymentMethods = localStorage.getItem(STORAGE_KEYS.PAYMENT_METHODS);
+    if (storedPaymentMethods) state.paymentMethods = JSON.parse(storedPaymentMethods);
+
     const storedDismissed = localStorage.getItem(STORAGE_KEYS.DISMISSED);
     if (storedDismissed) state.dismissedAlerts = JSON.parse(storedDismissed);
 
@@ -89,6 +97,7 @@ function loadLocalStorage() {
 function saveLocalStorage() {
   try {
     localStorage.setItem(STORAGE_KEYS.SUBS, JSON.stringify(state.subscriptions));
+    localStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(state.paymentMethods));
     localStorage.setItem(STORAGE_KEYS.DISMISSED, JSON.stringify(state.dismissedAlerts));
     localStorage.setItem(STORAGE_KEYS.THEME, state.theme);
   } catch (e) {
@@ -139,7 +148,8 @@ function setupEventListeners() {
     document.getElementById('custom-category-group').style.display = 'none';
     document.getElementById('product-name-group').style.display = 'none';
     document.getElementById('sub-product-name').value = '';
-    
+    populatePaymentMethodSelect('');
+
     // Default to service selected
     document.getElementById('type-service').checked = true;
 
@@ -157,9 +167,23 @@ function setupEventListeners() {
 
   closeModalBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      modal.classList.remove('active');
+      const overlay = btn.closest('.modal-overlay');
+      if (overlay) overlay.classList.remove('active');
     });
   });
+
+  // Payment Method (Cards & Accounts) modal controls
+  const paymentMethodModal = document.getElementById('payment-method-modal');
+  const addPaymentMethodBtn = document.getElementById('add-payment-method-btn');
+  if (addPaymentMethodBtn) addPaymentMethodBtn.addEventListener('click', openAddPaymentMethodModal);
+
+  const paymentMethodForm = document.getElementById('payment-method-form');
+  if (paymentMethodForm) paymentMethodForm.addEventListener('submit', handlePaymentMethodFormSubmit);
+
+  // Pause (with optional auto-resume date) modal controls
+  const pauseModal = document.getElementById('pause-modal');
+  const pauseForm = document.getElementById('pause-form');
+  if (pauseForm) pauseForm.addEventListener('submit', handlePauseFormSubmit);
 
   // Custom Category Dropdown toggle
   const categorySelect = document.getElementById('sub-category');
@@ -197,7 +221,6 @@ function setupEventListeners() {
   // Search & Filtering controls
   const searchInput = document.getElementById('search-input');
   const searchClearBtn = document.getElementById('search-clear-btn');
-  const sortSelect = document.getElementById('sort-select');
 
   searchInput.addEventListener('input', (e) => {
     state.searchQuery = e.target.value.toLowerCase().trim();
@@ -216,9 +239,39 @@ function setupEventListeners() {
     renderSubscriptionsList();
   });
 
-  sortSelect.addEventListener('change', (e) => {
-    state.sortKey = e.target.value;
+  // Sort menu (icon button + popover, lives outside the filter card since it orders
+  // results rather than narrowing them)
+  const sortMenuBtn = document.getElementById('sort-menu-btn');
+  const sortMenuDropdown = document.getElementById('sort-menu-dropdown');
+
+  const closeSortMenu = () => {
+    sortMenuDropdown.classList.remove('open');
+    sortMenuBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  sortMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = sortMenuDropdown.classList.toggle('open');
+    sortMenuBtn.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  sortMenuDropdown.addEventListener('click', (e) => {
+    const item = e.target.closest('.sort-menu-item');
+    if (!item) return;
+
+    sortMenuDropdown.querySelectorAll('.sort-menu-item').forEach(el => el.classList.remove('active'));
+    item.classList.add('active');
+
+    state.sortKey = item.getAttribute('data-sort-key');
     renderSubscriptionsList();
+    updateSortMenuButtonState();
+    closeSortMenu();
+  });
+
+  updateSortMenuButtonState();
+
+  document.addEventListener('click', (e) => {
+    if (!sortMenuDropdown.contains(e.target) && e.target !== sortMenuBtn) closeSortMenu();
   });
 
   // Category Filter Chips event listener
@@ -231,6 +284,13 @@ function setupEventListeners() {
     chip.classList.add('active');
     
     state.categoryFilter = chip.getAttribute('data-category');
+    renderSubscriptionsList();
+  });
+
+  // Account (Card/Payment Method) Filter dropdown
+  const accountFilterSelect = document.getElementById('account-filter-select');
+  accountFilterSelect.addEventListener('change', (e) => {
+    state.accountFilter = e.target.value;
     renderSubscriptionsList();
   });
 
@@ -305,7 +365,32 @@ function setupEventListeners() {
   window.addEventListener('click', (e) => {
     if (e.target === modal) modal.classList.remove('active');
     if (e.target === notificationsModal) notificationsModal.classList.remove('active');
+    if (e.target === paymentMethodModal) paymentMethodModal.classList.remove('active');
+    if (e.target === pauseModal) pauseModal.classList.remove('active');
   });
+}
+
+const SORT_LABELS = {
+  'renewal-soon': 'Renewal (Soonest)',
+  'cost-high': 'Cost (Highest)',
+  'cost-low': 'Cost (Lowest)',
+  'name-az': 'Name (A-Z)',
+  'name-za': 'Name (Z-A)'
+};
+
+// Shows the current sort's label directly on the button (not just a color highlight), so the
+// active sort is readable at a glance without opening the popover.
+function updateSortMenuButtonState() {
+  const sortMenuBtn = document.getElementById('sort-menu-btn');
+  const sortMenuBtnLabel = document.getElementById('sort-menu-btn-label');
+  if (!sortMenuBtn || !sortMenuBtnLabel) return;
+
+  const label = SORT_LABELS[state.sortKey] || SORT_LABELS['renewal-soon'];
+  const isNonDefault = state.sortKey !== 'renewal-soon';
+
+  sortMenuBtnLabel.textContent = label;
+  sortMenuBtn.classList.toggle('active', isNonDefault);
+  sortMenuBtn.setAttribute('aria-label', `Sort subscriptions: ${label}`);
 }
 
 function switchTab(tabId) {
@@ -339,6 +424,9 @@ function switchTab(tabId) {
   } else if (tabId === 'analytics') {
     pageTitle.textContent = 'Analytics';
     pageSubtitle.textContent = 'Spend charts and breakdowns';
+  } else if (tabId === 'accounts') {
+    pageTitle.textContent = 'Accounts';
+    pageSubtitle.textContent = 'Manage cards & payment accounts';
   }
 
   // Refresh visual views if needed
@@ -358,6 +446,12 @@ function toggleTheme() {
 function getTodayDateString() {
   const d = new Date();
   return d.toISOString().split('T')[0];
+}
+
+// Single source of truth for "does this subscription count toward totals/notifications" -
+// paused and cancelled subscriptions stay in the list but are excluded everywhere else.
+function isActiveSubscription(sub) {
+  return (sub.status || 'active') === 'active';
 }
 
 // Advances a subscription's nextRenewalDate forward by its billing cadence
@@ -402,10 +496,24 @@ function getLastRenewalDate(sub) {
   return date.toISOString().split('T')[0];
 }
 
-// Rolls forward any past-due renewal dates across all subscriptions and persists the result.
-function normalizeRenewalDates() {
+// Backfills a status of 'active' onto subscriptions saved before pause/cancel existed.
+function normalizeSubscriptionStatuses() {
   let changed = false;
   state.subscriptions.forEach(sub => {
+    if (!sub.status) {
+      sub.status = 'active';
+      changed = true;
+    }
+  });
+  if (changed) saveLocalStorage();
+}
+
+// Rolls forward any past-due renewal dates across all ACTIVE subscriptions and persists the
+// result. Paused/cancelled subscriptions are left untouched so their renewal date stays frozen
+// at whatever it was when the subscription stopped being active.
+function normalizeRenewalDates() {
+  let changed = false;
+  state.subscriptions.filter(isActiveSubscription).forEach(sub => {
     if (rollForwardRenewalDate(sub)) changed = true;
   });
   if (changed) saveLocalStorage();
@@ -450,7 +558,8 @@ function calculateNormalizedCosts(sub) {
 }
 
 function getFilteredSubscriptions() {
-  let filtered = [...state.subscriptions];
+  // Paused/cancelled subscriptions are excluded from spend totals & counts.
+  let filtered = state.subscriptions.filter(isActiveSubscription);
 
   // Quick Filter (All / Services / Products)
   if (state.activeFilter === 'service') {
@@ -493,6 +602,9 @@ function handleFormSubmit(e) {
     notes: formData.get('notes').trim(),
     reminderDate: formData.get('reminderDate'),
     reminderText: formData.get('reminderText').trim(),
+    paymentMethodId: formData.get('paymentMethodId') || '',
+    status: subId ? (state.subscriptions.find(s => s.id === subId)?.status || 'active') : 'active',
+    pausedUntil: subId ? (state.subscriptions.find(s => s.id === subId)?.pausedUntil || '') : '',
     createdAt: subId ? (state.subscriptions.find(s => s.id === subId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
   };
 
@@ -575,6 +687,7 @@ function editSubscription(subId) {
   }
 
   document.getElementById('sub-manage-url').value = sub.manageUrl || '';
+  populatePaymentMethodSelect(sub.paymentMethodId || '');
   document.getElementById('sub-notes').value = sub.notes || '';
   document.getElementById('sub-reminder-date').value = sub.reminderDate || '';
   document.getElementById('sub-reminder-text').value = sub.reminderText || '';
@@ -615,11 +728,245 @@ function deleteSubscription(subId) {
   }
 }
 
+// Pausing/cancelling keeps the subscription in the list (badged, excluded from totals,
+// renewal reminders, and notifications) so history isn't lost the way deleteSubscription is.
+// Pause optionally takes an auto-resume date (see autoResumePausedSubscriptions), which is
+// what differentiates it from Cancel (permanent until manually reactivated).
+function openPauseModal(subId) {
+  const sub = state.subscriptions.find(s => s.id === subId);
+  if (!sub) return;
+
+  document.getElementById('pause-sub-id').value = subId;
+  document.getElementById('pause-until-date').value = sub.pausedUntil || '';
+  document.getElementById('pause-modal-title').textContent = `Pause "${getDisplayName(sub)}"`;
+  document.getElementById('pause-modal').classList.add('active');
+}
+
+function handlePauseFormSubmit(e) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const subId = formData.get('id');
+  const pausedUntil = formData.get('pausedUntil');
+
+  const sub = state.subscriptions.find(s => s.id === subId);
+  if (!sub) return;
+
+  sub.status = 'paused';
+  sub.pausedUntil = pausedUntil || '';
+
+  // If the chosen auto-resume date is today or earlier, resume it right now instead of
+  // leaving it paused until the next full page reload.
+  autoResumePausedSubscriptions();
+
+  saveLocalStorage();
+  document.getElementById('pause-modal').classList.remove('active');
+  renderAll();
+  checkUpcomingRenewals();
+}
+
+function resumeSubscription(subId) {
+  const sub = state.subscriptions.find(s => s.id === subId);
+  if (!sub) return;
+  sub.status = 'active';
+  sub.pausedUntil = '';
+  rollForwardRenewalDate(sub);
+  saveLocalStorage();
+  renderAll();
+  checkUpcomingRenewals();
+}
+
+function cancelSubscription(subId) {
+  const sub = state.subscriptions.find(s => s.id === subId);
+  if (!sub) return;
+  if (confirm(`Are you sure you want to cancel your subscription to "${getDisplayName(sub)}"? It will be kept in your list marked as cancelled.`)) {
+    sub.status = 'cancelled';
+    sub.pausedUntil = '';
+    saveLocalStorage();
+    renderAll();
+    checkUpcomingRenewals();
+  }
+}
+
+// Reactivating a cancelled subscription and resuming a paused one are the same transition
+// (back to 'active', clear pausedUntil, roll the renewal date forward) - kept as a separate
+// name only so the Cancelled-state UI button reads naturally.
+function reactivateSubscription(subId) {
+  resumeSubscription(subId);
+}
+
+// Auto-resumes any paused subscription whose pausedUntil date has arrived, so a subscription
+// paused with a resume date reappears in totals/lists on its own the next time the app loads.
+function autoResumePausedSubscriptions() {
+  const todayStr = getTodayDateString();
+  let changed = false;
+
+  state.subscriptions.forEach(sub => {
+    if (sub.status === 'paused' && sub.pausedUntil && sub.pausedUntil <= todayStr) {
+      sub.status = 'active';
+      sub.pausedUntil = '';
+      rollForwardRenewalDate(sub);
+      changed = true;
+    }
+  });
+
+  if (changed) saveLocalStorage();
+}
+
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
+}
+
+// ==========================================================================
+// PAYMENT METHODS (CARDS & ACCOUNTS) CRUD HANDLING
+// ==========================================================================
+function openAddPaymentMethodModal() {
+  document.getElementById('payment-method-form').reset();
+  document.getElementById('pm-id').value = '';
+  document.getElementById('payment-method-modal-title').textContent = 'Add Account';
+  document.getElementById('payment-method-modal').classList.add('active');
+
+  setTimeout(() => {
+    document.getElementById('pm-label').focus();
+  }, 150);
+}
+
+function editPaymentMethod(pmId) {
+  const pm = state.paymentMethods.find(p => p.id === pmId);
+  if (!pm) return;
+
+  document.getElementById('payment-method-modal-title').textContent = 'Edit Account';
+  document.getElementById('pm-id').value = pm.id;
+  document.getElementById('pm-label').value = pm.label;
+  document.getElementById('pm-notes').value = pm.notes || '';
+  document.getElementById('payment-method-modal').classList.add('active');
+
+  setTimeout(() => {
+    document.getElementById('pm-label').focus();
+  }, 150);
+}
+
+function handlePaymentMethodFormSubmit(e) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const pmId = formData.get('id');
+
+  const pmData = {
+    id: pmId || generateUUID(),
+    label: formData.get('label').trim(),
+    notes: formData.get('notes').trim(),
+    createdAt: pmId ? (state.paymentMethods.find(p => p.id === pmId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+  };
+
+  if (pmId) {
+    const idx = state.paymentMethods.findIndex(p => p.id === pmId);
+    if (idx !== -1) state.paymentMethods[idx] = pmData;
+  } else {
+    state.paymentMethods.push(pmData);
+  }
+
+  saveLocalStorage();
+  document.getElementById('payment-method-modal').classList.remove('active');
+  renderPaymentMethods();
+  if (state.activeTab === 'subscriptions') {
+    renderAccountFilterOptions();
+    renderSubscriptionsList();
+  }
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function deletePaymentMethod(pmId) {
+  const pm = state.paymentMethods.find(p => p.id === pmId);
+  if (!pm) return;
+
+  const linkedCount = state.subscriptions.filter(s => s.paymentMethodId === pmId).length;
+  const linkedWarning = linkedCount > 0 ? ` It's linked to ${linkedCount} subscription${linkedCount === 1 ? '' : 's'}, which will be unlinked.` : '';
+
+  if (confirm(`Are you sure you want to delete "${pm.label}"?${linkedWarning}`)) {
+    state.subscriptions.forEach(s => {
+      if (s.paymentMethodId === pmId) s.paymentMethodId = '';
+    });
+    state.paymentMethods = state.paymentMethods.filter(p => p.id !== pmId);
+    if (state.accountFilter === pmId) state.accountFilter = 'all';
+
+    saveLocalStorage();
+    renderPaymentMethods();
+    if (state.activeTab === 'subscriptions') {
+      renderAccountFilterOptions();
+      renderSubscriptionsList();
+    }
+  }
+}
+
+// Populates the subscription form's payment method dropdown from current state, selecting selectedId if given.
+function populatePaymentMethodSelect(selectedId) {
+  const select = document.getElementById('sub-payment-method');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">None</option>' + state.paymentMethods.map(pm =>
+    `<option value="${pm.id}">${escapeHTML(pm.label)}</option>`
+  ).join('');
+  select.value = selectedId || '';
+}
+
+function renderPaymentMethods() {
+  const container = document.getElementById('payment-methods-list-container');
+  if (!container) return;
+
+  if (state.paymentMethods.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state large-empty-state">
+        <i data-lucide="credit-card" class="bounce-animation"></i>
+        <h3>No Cards or Accounts Yet</h3>
+        <p>Add a card or account nickname to start linking it to your subscriptions.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = state.paymentMethods.map(pm => {
+    const linkedCount = state.subscriptions.filter(s => s.paymentMethodId === pm.id).length;
+
+    return `
+      <div class="sub-card" data-pm-id="${pm.id}">
+        <div class="sub-card-header">
+          <div class="sub-info-block">
+            <div class="sub-logo" style="background: var(--service-gradient)">
+              <i data-lucide="credit-card" style="width:18px;height:18px;"></i>
+            </div>
+            <div class="sub-name-wrapper">
+              <span class="sub-name">${escapeHTML(pm.label)}</span>
+              <div class="sub-meta-row">
+                <span class="sub-category-tag">${linkedCount} subscription${linkedCount === 1 ? '' : 's'} linked</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        ${pm.notes ? `
+          <div class="sub-card-divider"></div>
+          <div class="notes-block">${escapeHTML(pm.notes)}</div>
+        ` : ''}
+
+        <div class="card-actions-row">
+          <div class="card-btn-group">
+            <button class="btn-action-outline card-action-btn" onclick="editPaymentMethod('${pm.id}')" aria-label="Edit">
+              <i data-lucide="edit-3" style="width:14px;height:14px;margin-right:4px;"></i>
+              <span>Edit</span>
+            </button>
+            <button class="card-action-btn card-action-btn-danger" onclick="deletePaymentMethod('${pm.id}')" aria-label="Delete">
+              <i data-lucide="trash-2" style="width:14px;height:14px;margin-right:4px;"></i>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) window.lucide.createIcons();
 }
 
 // ==========================================================================
@@ -631,8 +978,11 @@ function renderAll() {
   } else if (state.activeTab === 'subscriptions') {
     renderSubscriptionsList();
     renderCategoryChips();
+    renderAccountFilterOptions();
   } else if (state.activeTab === 'analytics') {
     renderAnalytics();
+  } else if (state.activeTab === 'accounts') {
+    renderPaymentMethods();
   }
 }
 
@@ -655,12 +1005,12 @@ function renderDashboard() {
   });
 
   // Update UI Stats
-  const currencySymbol = state.subscriptions[0]?.currency || '$';
+  const currencySymbol = subs[0]?.currency || '$';
   document.getElementById('stat-monthly-cost').textContent = `${currencySymbol}${formatCurrency(monthlyTotal)}`;
   document.getElementById('stat-annual-cost').textContent = `${currencySymbol}${formatCurrency(annualTotal)}`;
   
   if (state.activeFilter === 'all') {
-    document.getElementById('stat-active-count').textContent = state.subscriptions.length;
+    document.getElementById('stat-active-count').textContent = subs.length;
     document.getElementById('stat-active-subtext').textContent = `${servicesCount} services, ${productsCount} products`;
   } else if (state.activeFilter === 'service') {
     document.getElementById('stat-active-count').textContent = servicesCount;
@@ -694,7 +1044,7 @@ function renderDashboardAlerts() {
   const customList = [];
   const recentlyRenewedList = [];
 
-  state.subscriptions.forEach(sub => {
+  state.subscriptions.filter(isActiveSubscription).forEach(sub => {
     const renewalDate = new Date(sub.nextRenewalDate + 'T00:00:00');
 
     // 1. Upcoming renewals within 3 days
@@ -874,6 +1224,13 @@ function renderSubscriptionsList() {
     list = list.filter(sub => sub.category === state.categoryFilter);
   }
 
+  // 2b. Account (Card/Payment Method) Filter
+  if (state.accountFilter === 'unassigned') {
+    list = list.filter(sub => !sub.paymentMethodId);
+  } else if (state.accountFilter !== 'all') {
+    list = list.filter(sub => sub.paymentMethodId === state.accountFilter);
+  }
+
   // 3. Sorting
   if (state.sortKey === 'renewal-soon') {
     list.sort((a,b) => new Date(a.nextRenewalDate) - new Date(b.nextRenewalDate));
@@ -901,24 +1258,26 @@ function renderSubscriptionsList() {
 
   container.innerHTML = list.map(sub => {
     const isService = sub.type === 'service';
-    const bgGradient = isService ? 'var(--service-gradient)' : 'var(--product-gradient)';
     const badgeClass = isService ? 'sub-badge-service' : 'sub-badge-product';
     const typeLabel = isService ? 'Service' : 'Product';
     const costs = calculateNormalizedCosts(sub);
+    const status = sub.status || 'active';
+    const statusCardClass = status === 'active' ? '' : ` sub-card-${status}`;
+    const paymentMethod = sub.paymentMethodId ? state.paymentMethods.find(pm => pm.id === sub.paymentMethodId) : null;
 
     return `
-      <div class="sub-card" data-sub-id="${sub.id}" onclick="toggleCardExpansion(this, event)">
+      <div class="sub-card${statusCardClass}" data-sub-id="${sub.id}" onclick="toggleCardExpansion(this, event)">
         <div class="sub-card-header">
           <div class="sub-info-block">
-            <div class="sub-logo" style="background: ${bgGradient}">
-              ${sub.name.charAt(0).toUpperCase()}
-            </div>
             <div class="sub-name-wrapper">
               <span class="sub-name">${sub.name}</span>
               ${sub.productName ? `<span class="sub-product-name">${escapeHTML(sub.productName)}</span>` : ''}
               <div class="sub-meta-row">
                 <span class="sub-badge ${badgeClass}">${typeLabel}</span>
+                ${status !== 'active' ? `<span class="sub-badge sub-badge-${status}">${status === 'paused' ? 'Paused' : 'Cancelled'}</span>` : ''}
+                ${status === 'paused' && sub.pausedUntil ? `<span class="sub-category-tag">Resumes ${formatDateString(sub.pausedUntil)}</span>` : ''}
                 <span class="sub-category-tag">${sub.category}</span>
+                ${paymentMethod ? `<span class="sub-category-tag">· ${escapeHTML(paymentMethod.label)}</span>` : ''}
                 ${sub.manageUrl ? `
                   <a href="${sub.manageUrl}" target="_blank" rel="noopener noreferrer" class="sub-manage-icon-link" title="Manage subscription" aria-label="Manage subscription">
                     <i data-lucide="external-link"></i>
@@ -979,16 +1338,46 @@ function renderSubscriptionsList() {
 
           <div class="card-actions-row">
             <div class="card-btn-group">
-              <button class="btn-action-outline card-action-btn" onclick="editSubscription('${sub.id}')">
+              <button class="btn-action-outline card-action-btn" onclick="editSubscription('${sub.id}')" aria-label="Edit">
                 <i data-lucide="edit-3" style="width:14px;height:14px;margin-right:4px;"></i>
                 <span>Edit</span>
               </button>
-              <button class="card-action-btn card-action-btn-danger" onclick="deleteSubscription('${sub.id}')">
+              ${status === 'active' ? `
+                <button class="btn-action-outline card-action-btn" onclick="openPauseModal('${sub.id}')" aria-label="Pause">
+                  <i data-lucide="pause" style="width:14px;height:14px;margin-right:4px;"></i>
+                  <span>Pause</span>
+                </button>
+                <button class="btn-action-outline card-action-btn" onclick="cancelSubscription('${sub.id}')" aria-label="Cancel">
+                  <i data-lucide="ban" style="width:14px;height:14px;margin-right:4px;"></i>
+                  <span>Cancel</span>
+                </button>
+              ` : ''}
+              ${status === 'paused' ? `
+                <button class="btn-action-outline card-action-btn" onclick="resumeSubscription('${sub.id}')" aria-label="Resume">
+                  <i data-lucide="play" style="width:14px;height:14px;margin-right:4px;"></i>
+                  <span>Resume</span>
+                </button>
+                <button class="btn-action-outline card-action-btn" onclick="openPauseModal('${sub.id}')" aria-label="${sub.pausedUntil ? 'Edit Resume Date' : 'Set Resume Date'}">
+                  <i data-lucide="clock" style="width:14px;height:14px;margin-right:4px;"></i>
+                  <span>${sub.pausedUntil ? 'Edit Resume Date' : 'Set Resume Date'}</span>
+                </button>
+                <button class="btn-action-outline card-action-btn" onclick="cancelSubscription('${sub.id}')" aria-label="Cancel">
+                  <i data-lucide="ban" style="width:14px;height:14px;margin-right:4px;"></i>
+                  <span>Cancel</span>
+                </button>
+              ` : ''}
+              ${status === 'cancelled' ? `
+                <button class="btn-action-outline card-action-btn" onclick="reactivateSubscription('${sub.id}')" aria-label="Reactivate">
+                  <i data-lucide="rotate-ccw" style="width:14px;height:14px;margin-right:4px;"></i>
+                  <span>Reactivate</span>
+                </button>
+              ` : ''}
+              <button class="card-action-btn card-action-btn-danger" onclick="deleteSubscription('${sub.id}')" aria-label="Delete">
                 <i data-lucide="trash-2" style="width:14px;height:14px;margin-right:4px;"></i>
                 <span>Delete</span>
               </button>
             </div>
-            
+
             ${sub.manageUrl ? `
               <a href="${sub.manageUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn-manage" onclick="event.stopPropagation()">
                 <span>Manage</span>
@@ -1033,6 +1422,26 @@ function renderCategoryChips() {
   `).join('');
 }
 
+function renderAccountFilterOptions() {
+  const select = document.getElementById('account-filter-select');
+  if (!select) return;
+
+  const hasUnassigned = state.subscriptions.some(s => !s.paymentMethodId);
+
+  select.innerHTML = `
+    <option value="all">All Accounts</option>
+  ` + state.paymentMethods.map(pm =>
+    `<option value="${pm.id}">${escapeHTML(pm.label)}</option>`
+  ).join('') + (hasUnassigned ? `<option value="unassigned">Unassigned</option>` : '');
+
+  // Fall back to "All" if the previously selected account no longer exists (e.g. deleted).
+  select.value = state.accountFilter;
+  if (select.value !== state.accountFilter) {
+    state.accountFilter = 'all';
+    select.value = 'all';
+  }
+}
+
 // Render Analytics View (SVG Custom Donut & Custom Bar Chart)
 function renderAnalytics() {
   const donutContainer = document.getElementById('donut-chart-container');
@@ -1042,7 +1451,10 @@ function renderAnalytics() {
   const donutLegend = document.getElementById('donut-chart-legend');
   const barLegend = document.getElementById('bar-chart-legend');
 
-  if (state.subscriptions.length === 0) {
+  // Paused/cancelled subscriptions don't count toward spend analytics.
+  const activeSubs = state.subscriptions.filter(isActiveSubscription);
+
+  if (activeSubs.length === 0) {
     donutContainer.innerHTML = `
       <div class="empty-chart-placeholder">
         <i data-lucide="pie-chart" class="placeholder-icon"></i>
@@ -1068,13 +1480,13 @@ function renderAnalytics() {
   }
 
   // Currency
-  const currencySymbol = state.subscriptions[0]?.currency || '$';
+  const currencySymbol = activeSubs[0]?.currency || '$';
 
   // 1. Calculate category spends (Monthly Normalized)
   const categorySpends = {};
   let totalMonthlySpend = 0;
 
-  state.subscriptions.forEach(s => {
+  activeSubs.forEach(s => {
     const costs = calculateNormalizedCosts(s);
     totalMonthlySpend += costs.monthly;
     
@@ -1145,7 +1557,7 @@ function renderAnalytics() {
 
   // 2. Monthly Expense Breakdown (Top Subscriptions Bar Chart)
   // Group by subscription name (rolling up same-company products), then sort by highest monthly cost
-  const sortedGroups = groupSubscriptionsByName(state.subscriptions)
+  const sortedGroups = groupSubscriptionsByName(activeSubs)
     .sort((a,b) => b.monthly - a.monthly);
 
   // Top 5 + Other is a readability choice, not a width-fitting requirement — the scale-down
@@ -1268,7 +1680,7 @@ function renderAnalytics() {
   }).join('');
 
   // 3. Comparison Table rendering
-  let comparisonRows = state.subscriptions.map(s => {
+  let comparisonRows = activeSubs.map(s => {
     const costs = calculateNormalizedCosts(s);
     const pct = totalMonthlySpend ? (costs.monthly / totalMonthlySpend) * 100 : 0;
     return { sub: s, costs, pct, cycleDays: getCycleDays(s) };
@@ -1579,9 +1991,9 @@ function checkUpcomingRenewals() {
 
   let newNotificationsSent = false;
 
-  state.subscriptions.forEach(sub => {
+  state.subscriptions.filter(isActiveSubscription).forEach(sub => {
     const renewalDate = new Date(sub.nextRenewalDate + 'T00:00:00');
-    
+
     // 1. Check Renewal alerts (within 3 days)
     if (renewalDate >= today && renewalDate <= threeDaysFromNow) {
       const alertId = `${sub.id}-${sub.nextRenewalDate}-renewal`;
@@ -1670,7 +2082,7 @@ function updateBellCount() {
 
   let activeAlertsCount = 0;
 
-  state.subscriptions.forEach(sub => {
+  state.subscriptions.filter(isActiveSubscription).forEach(sub => {
     // 1. Renewal alerts
     const renewalDate = new Date(sub.nextRenewalDate + 'T00:00:00');
     if (renewalDate >= today && renewalDate <= threeDaysFromNow) {
@@ -1712,7 +2124,7 @@ function renderNotificationsCenter() {
 
   const activeAlerts = [];
 
-  state.subscriptions.forEach(sub => {
+  state.subscriptions.filter(isActiveSubscription).forEach(sub => {
     // 1. Renewal alerts
     const renewalDate = new Date(sub.nextRenewalDate + 'T00:00:00');
     if (renewalDate >= today && renewalDate <= threeDaysFromNow) {
@@ -1789,7 +2201,10 @@ window.dismissFromCenter = function(alertId) {
 // ==========================================================================
 function exportDataToJSON() {
   try {
-    const dataStr = JSON.stringify(state.subscriptions, null, 2);
+    const dataStr = JSON.stringify({
+      subscriptions: state.subscriptions,
+      paymentMethods: state.paymentMethods
+    }, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
     const exportFileDefaultName = `subtrack_backup_${getTodayDateString()}.json`;
@@ -1812,23 +2227,30 @@ function importDataFromJSON(e) {
   fileReader.onload = (event) => {
     try {
       const importedData = JSON.parse(event.target.result);
-      
+
+      // Support both the legacy backup format (a raw array of subscriptions) and the
+      // current format ({ subscriptions, paymentMethods }), so old backups still import.
+      const isLegacyFormat = Array.isArray(importedData);
+      const importedSubs = isLegacyFormat ? importedData : importedData.subscriptions;
+      const importedPaymentMethods = isLegacyFormat ? [] : (importedData.paymentMethods || []);
+
       // Basic schema validation
-      if (Array.isArray(importedData)) {
-        const isValid = importedData.every(item => 
-          item.id && 
-          item.name && 
-          typeof item.cost === 'number' && 
+      if (Array.isArray(importedSubs)) {
+        const isValid = importedSubs.every(item =>
+          item.id &&
+          item.name &&
+          typeof item.cost === 'number' &&
           item.currency &&
           item.billingInterval &&
           item.billingPeriod &&
           item.nextRenewalDate
-        );
+        ) && importedPaymentMethods.every(pm => pm.id && pm.label);
 
         if (isValid) {
-          if (confirm(`Successfully read backup file. Do you want to import ${importedData.length} subscriptions? This will merge with your current items.`)) {
+          const accountsSuffix = importedPaymentMethods.length > 0 ? ` and ${importedPaymentMethods.length} account(s)` : '';
+          if (confirm(`Successfully read backup file. Do you want to import ${importedSubs.length} subscriptions${accountsSuffix}? This will merge with your current items.`)) {
             // Merge matching IDs, add non-existent
-            importedData.forEach(importedItem => {
+            importedSubs.forEach(importedItem => {
               const existingIdx = state.subscriptions.findIndex(s => s.id === importedItem.id);
               if (existingIdx !== -1) {
                 state.subscriptions[existingIdx] = importedItem;
@@ -1837,6 +2259,16 @@ function importDataFromJSON(e) {
               }
             });
 
+            importedPaymentMethods.forEach(importedPm => {
+              const existingIdx = state.paymentMethods.findIndex(p => p.id === importedPm.id);
+              if (existingIdx !== -1) {
+                state.paymentMethods[existingIdx] = importedPm;
+              } else {
+                state.paymentMethods.push(importedPm);
+              }
+            });
+
+            normalizeSubscriptionStatuses();
             saveLocalStorage();
             renderAll();
             checkUpcomingRenewals();
@@ -1846,7 +2278,7 @@ function importDataFromJSON(e) {
           alert('Import failed: The JSON file does not match the required SubTrack data schema.');
         }
       } else {
-        alert('Import failed: Backup file must contain a JSON array of subscriptions.');
+        alert('Import failed: Backup file must contain a JSON array of subscriptions, or an object with a subscriptions array.');
       }
     } catch (err) {
       alert('Import failed: Invalid JSON file.');

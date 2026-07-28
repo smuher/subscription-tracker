@@ -790,6 +790,103 @@ body.light-theme .stat-icon-wrapper {
   margin-bottom: 20px;
 }
 
+/* List Toolbar (Sort) - intentionally separate from the filter card below since
+   sorting reorders results rather than narrowing them */
+.list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.sort-menu-wrapper {
+  position: relative;
+}
+
+.sort-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sort-menu-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--text-muted);
+}
+
+.sort-menu-btn i {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sort-menu-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.sort-menu-btn.active i {
+  color: white;
+}
+
+.sort-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: var(--card-blur);
+  padding: 6px;
+  z-index: 50;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+}
+
+.sort-menu-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.sort-menu-item {
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  white-space: nowrap;
+  min-height: 36px;
+}
+
+.sort-menu-item:hover {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.sort-menu-item.active {
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-weight: 700;
+}
+
 .search-sort-bar {
   display: flex;
   flex-direction: column;
@@ -849,12 +946,12 @@ body.light-theme .stat-icon-wrapper {
   height: 16px;
 }
 
-.sort-select-wrapper {
+.select-input-wrapper {
   position: relative;
   width: 100%;
 }
 
-.sort-select-wrapper select {
+.select-input-wrapper select {
   width: 100%;
   min-height: 48px;
   background: var(--bg-input);
@@ -868,7 +965,7 @@ body.light-theme .stat-icon-wrapper {
   font-weight: 600;
 }
 
-.sort-select-wrapper select:focus {
+.select-input-wrapper select:focus {
   border-color: var(--border-focus);
 }
 
@@ -953,8 +1050,9 @@ body.light-theme .stat-icon-wrapper {
 
 .sub-card-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -962,6 +1060,8 @@ body.light-theme .stat-icon-wrapper {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .sub-logo {
@@ -980,6 +1080,7 @@ body.light-theme .stat-icon-wrapper {
 .sub-name-wrapper {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .sub-name {
@@ -997,8 +1098,9 @@ body.light-theme .stat-icon-wrapper {
 
 .sub-meta-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
   margin-top: 2px;
 }
 
@@ -1018,6 +1120,21 @@ body.light-theme .stat-icon-wrapper {
 .sub-badge-product {
   background: rgba(20, 184, 166, 0.15);
   color: var(--product-color);
+}
+
+.sub-badge-paused {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.sub-badge-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.sub-card-paused,
+.sub-card-cancelled {
+  opacity: 0.65;
 }
 
 .sub-category-tag {
@@ -1052,6 +1169,7 @@ body.light-theme .stat-icon-wrapper {
   flex-direction: column;
   align-items: flex-end;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .sub-price {
@@ -1142,21 +1260,36 @@ body.light-theme .notes-block {
 
 .card-actions-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 8px;
   margin-top: 14px;
 }
 
 .card-btn-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .card-action-btn {
   padding: 6px 12px;
   min-height: 32px;
+  min-width: 32px;
   font-size: 12px;
   border-radius: 8px;
+}
+
+/* Icon-only on mobile so a card's full action row (Edit/Pause/Cancel/Delete, etc.) fits
+   without wrapping across several lines; labels come back once there's room (see tablet+
+   media query below). */
+.card-action-btn span {
+  display: none;
+}
+
+.card-action-btn i {
+  margin-right: 0 !important;
 }
 
 .card-action-btn-danger {
@@ -1400,6 +1533,25 @@ body.light-theme .analytics-table tr:hover td:not(:first-child) {
 .table-manage-link:hover {
   color: var(--primary);
   text-decoration-color: var(--primary);
+}
+
+/* Accounts (Cards & Payment Methods) header panel */
+.accounts-header-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.accounts-header-card h3 {
+  margin: 0 0 4px;
+}
+
+.accounts-header-card p {
+  margin: 0;
+  max-width: 60ch;
 }
 
 /* Backup and restore panel */
@@ -1839,6 +1991,14 @@ textarea {
     white-space: nowrap;
   }
 
+  .card-action-btn span {
+    display: inline;
+  }
+
+  .card-action-btn i {
+    margin-right: 4px !important;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -2003,7 +2163,7 @@ textarea {
     align-items: center;
   }
 
-  .sort-select-wrapper {
+  .select-input-wrapper {
     width: 220px;
   }
 

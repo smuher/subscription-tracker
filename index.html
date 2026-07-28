@@ -47,6 +47,10 @@
           <i data-lucide="pie-chart"></i>
           <span>Analytics</span>
         </button>
+        <button class="nav-item" data-tab="accounts">
+          <i data-lucide="credit-card"></i>
+          <span>Accounts</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
         <button class="btn-action-outline theme-toggle-btn">
@@ -213,7 +217,24 @@
         <!-- SUBSCRIPTIONS VIEW -->
         <!-- ========================================== -->
         <section id="view-subscriptions" class="tab-view">
-          
+
+          <!-- List Toolbar (Sort - not a filter, kept outside the filter card) -->
+          <div class="list-toolbar">
+            <div class="sort-menu-wrapper">
+              <button type="button" class="sort-menu-btn" id="sort-menu-btn" aria-label="Sort subscriptions" aria-haspopup="true" aria-expanded="false">
+                <i data-lucide="arrow-up-down"></i>
+                <span id="sort-menu-btn-label">Renewal (Soonest)</span>
+              </button>
+              <div class="sort-menu-dropdown" id="sort-menu-dropdown">
+                <button type="button" class="sort-menu-item active" data-sort-key="renewal-soon">Renewal (Soonest)</button>
+                <button type="button" class="sort-menu-item" data-sort-key="cost-high">Cost (Highest)</button>
+                <button type="button" class="sort-menu-item" data-sort-key="cost-low">Cost (Lowest)</button>
+                <button type="button" class="sort-menu-item" data-sort-key="name-az">Name (A-Z)</button>
+                <button type="button" class="sort-menu-item" data-sort-key="name-za">Name (Z-A)</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Search & Filter Controls -->
           <div class="controls-card glass-panel">
             <div class="search-sort-bar">
@@ -224,14 +245,10 @@
                   <i data-lucide="x"></i>
                 </button>
               </div>
-              <div class="sort-select-wrapper">
-                <i data-lucide="arrow-up-down" class="sort-icon"></i>
-                <select id="sort-select">
-                  <option value="renewal-soon">Renewal (Soonest)</option>
-                  <option value="cost-high">Cost (Highest)</option>
-                  <option value="cost-low">Cost (Lowest)</option>
-                  <option value="name-az">Name (A-Z)</option>
-                  <option value="name-za">Name (Z-A)</option>
+              <div class="select-input-wrapper">
+                <i data-lucide="credit-card" class="sort-icon"></i>
+                <select id="account-filter-select">
+                  <option value="all">All Accounts</option>
                 </select>
               </div>
             </div>
@@ -349,6 +366,31 @@
           </div>
         </section>
 
+        <!-- ========================================== -->
+        <!-- ACCOUNTS (CARDS & PAYMENT ACCOUNTS) VIEW -->
+        <!-- ========================================== -->
+        <section id="view-accounts" class="tab-view">
+          <div class="controls-card glass-panel accounts-header-card">
+            <div>
+              <h3>Cards & Accounts</h3>
+              <p class="text-secondary">Track the cards and accounts you use to pay for subscriptions. Store a nickname only &mdash; never a full card number.</p>
+            </div>
+            <button class="btn-primary" id="add-payment-method-btn">
+              <i data-lucide="plus"></i>
+              <span>Add Account</span>
+            </button>
+          </div>
+
+          <div class="subscription-list-grid" id="payment-methods-list-container">
+            <!-- Injected dynamically by JS -->
+            <div class="empty-state large-empty-state">
+              <i data-lucide="credit-card" class="bounce-animation"></i>
+              <h3>No Cards or Accounts Yet</h3>
+              <p>Add a card or account nickname to start linking it to your subscriptions.</p>
+            </div>
+          </div>
+        </section>
+
       </div>
     </main>
 
@@ -365,6 +407,10 @@
       <button class="bottom-nav-item" data-tab="analytics">
         <i data-lucide="pie-chart"></i>
         <span>Analytics</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="accounts">
+        <i data-lucide="credit-card"></i>
+        <span>Accounts</span>
       </button>
     </nav>
 
@@ -484,10 +530,18 @@
             <input type="url" id="sub-manage-url" name="manageUrl" placeholder="https://netflix.com/youraccount" tabindex="12">
           </div>
 
+          <!-- Payment Method -->
+          <div class="form-group full-width">
+            <label for="sub-payment-method">Payment Method <span class="label-optional">(Optional)</span></label>
+            <select id="sub-payment-method" name="paymentMethodId" tabindex="13">
+              <option value="">None</option>
+            </select>
+          </div>
+
           <!-- Notes -->
           <div class="form-group full-width">
             <label for="sub-notes">Notes / Details <span class="label-optional">(Optional)</span></label>
-            <textarea id="sub-notes" name="notes" placeholder="e.g. Account username, Tier info, Cancellation terms..." tabindex="13"></textarea>
+            <textarea id="sub-notes" name="notes" placeholder="e.g. Account username, Tier info, Cancellation terms..." tabindex="14"></textarea>
           </div>
 
           <!-- Custom Reminder Section header -->
@@ -498,19 +552,19 @@
           <!-- Reminder Date -->
           <div class="form-group">
             <label for="sub-reminder-date">Reminder Date <span class="label-optional">(Optional)</span></label>
-            <input type="date" id="sub-reminder-date" name="reminderDate" tabindex="14">
+            <input type="date" id="sub-reminder-date" name="reminderDate" tabindex="15">
           </div>
 
           <!-- Reminder Text -->
           <div class="form-group">
             <label for="sub-reminder-text">Reminder Message <span class="label-optional">(Optional)</span></label>
-            <input type="text" id="sub-reminder-text" name="reminderText" placeholder="e.g., Cancel trial, Review usage" tabindex="15">
+            <input type="text" id="sub-reminder-text" name="reminderText" placeholder="e.g., Cancel trial, Review usage" tabindex="16">
           </div>
         </div>
 
         <div class="form-actions">
-          <button type="button" class="btn-action-outline close-modal-btn" id="form-cancel-btn" tabindex="16">Cancel</button>
-          <button type="submit" class="btn-primary" id="form-submit-btn" tabindex="17">Save Subscription</button>
+          <button type="button" class="btn-action-outline close-modal-btn" id="form-cancel-btn" tabindex="17">Cancel</button>
+          <button type="submit" class="btn-primary" id="form-submit-btn" tabindex="18">Save Subscription</button>
         </div>
       </form>
     </div>
@@ -548,6 +602,79 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: PAUSE SUBSCRIPTION -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="pause-modal">
+    <div class="modal-container">
+
+      <div class="modal-header">
+        <h2 id="pause-modal-title">Pause Subscription</h2>
+        <button class="icon-btn close-modal-btn" aria-label="Close modal">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <form id="pause-form" class="modal-form">
+        <input type="hidden" id="pause-sub-id" name="id">
+
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label for="pause-until-date">Auto-Resume Date <span class="label-optional">(Optional)</span></label>
+            <input type="date" id="pause-until-date" name="pausedUntil" tabindex="1">
+            <p class="text-secondary" style="margin: 6px 0 0; font-size: 12px;">
+              Leave blank to pause indefinitely. If set, this subscription automatically returns to Active &mdash; and back into your totals and renewal reminders &mdash; on that date.
+            </p>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-action-outline close-modal-btn" tabindex="2">Cancel</button>
+          <button type="submit" class="btn-primary" tabindex="3">Pause Subscription</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ADD / EDIT CARD / ACCOUNT -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="payment-method-modal">
+    <div class="modal-container">
+
+      <div class="modal-header">
+        <h2 id="payment-method-modal-title">Add Account</h2>
+        <button class="icon-btn close-modal-btn" aria-label="Close modal">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <form id="payment-method-form" class="modal-form">
+        <!-- Hidden input for ID when editing -->
+        <input type="hidden" id="pm-id" name="id">
+
+        <div class="form-grid">
+          <!-- Nickname -->
+          <div class="form-group full-width">
+            <label for="pm-label" class="required-label">Nickname</label>
+            <input type="text" id="pm-label" name="label" required placeholder="e.g., Chase Visa ...4242, PayPal, Joint Checking" tabindex="1">
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group full-width">
+            <label for="pm-notes">Notes <span class="label-optional">(Optional)</span></label>
+            <textarea id="pm-notes" name="notes" placeholder="e.g. Expires 08/2027, shared with spouse..." tabindex="2"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-action-outline close-modal-btn" tabindex="3">Cancel</button>
+          <button type="submit" class="btn-primary" tabindex="4">Save Account</button>
+        </div>
+      </form>
     </div>
   </div>
 
